@@ -459,7 +459,7 @@ export function TrendingViralPicker({
   return (
     <div className="mb-10 space-y-6">
       {/* HUD del Cerebro Scout & Métricas Globales (Fusión con Video Scout) */}
-      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/90 via-zinc-950/80 to-black p-6 shadow-2xl backdrop-blur">
+      <div className="rounded-2xl border border-zinc-800 bg-gradient-to-b from-zinc-900/90 via-zinc-950/80 to-black p-4 sm:p-6 shadow-2xl backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">
@@ -467,39 +467,39 @@ export function TrendingViralPicker({
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-signal opacity-75"></span>
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-signal"></span>
               </span>
-              <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-signal">
+              <span className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.18em] text-signal">
                 Scout Brain v3.0 · Algoritmo Wily Scoring + YouTube Live 7D
               </span>
             </div>
-            <h2 className="font-display text-2xl font-semibold tracking-tight text-white flex items-center gap-2.5">
+            <h2 className="font-display text-xl sm:text-2xl font-semibold tracking-tight text-white flex items-center gap-2.5">
               <span>Radar de Ganadores Reales en YouTube Shorts</span>
-              <Brain size={20} className="text-signal animate-pulse" />
+              <Brain size={20} className="text-signal animate-pulse shrink-0" />
             </h2>
-            <p className="max-w-2xl text-[13px] leading-relaxed text-zinc-400">
+            <p className="max-w-2xl text-[12px] sm:text-[13px] leading-relaxed text-zinc-400">
               Filtro estricto de los últimos 7 días. Cada video incluye curvas predictivas a 24h/48h, velocidad por hora ($vph$) y botón de clonación directa.
             </p>
           </div>
 
           {/* Acciones de Reconocimiento & Tarjeta de Confianza */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
             <button
               onClick={handleRunFenixScout}
               disabled={isFenixRunning || busy}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 hover:from-purple-500 hover:to-rose-500 text-white font-bold text-xs shadow-lg shadow-purple-900/30 transition disabled:opacity-50 cursor-pointer"
+              className="flex items-center gap-2 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 hover:from-purple-500 hover:to-rose-500 text-white font-bold text-[11px] sm:text-xs shadow-lg shadow-purple-900/30 transition disabled:opacity-50 cursor-pointer"
               title="Abre la sesión de Chrome de Wily para escanear tendencias en primera persona"
             >
               <Sparkles size={14} className={isFenixRunning ? "animate-spin" : ""} />
               <span>{isFenixRunning ? "Fénix en Misión 1ª Persona..." : "Fénix Social Scout (TikTok & Insta)"}</span>
             </button>
 
-            <div className="flex flex-col items-end justify-center rounded-xl border border-signal/30 bg-signal/[0.06] px-4 py-2.5 text-right">
-              <div className="text-[10.5px] font-semibold uppercase tracking-wider text-signal">
+            <div className="flex flex-col items-start sm:items-end justify-center rounded-xl border border-signal/30 bg-signal/[0.06] px-3.5 sm:px-4 py-2 text-left sm:text-right">
+              <div className="text-[10px] sm:text-[10.5px] font-semibold uppercase tracking-wider text-signal">
                 Algoritmo de Aprendizaje
               </div>
-              <div className="text-[16px] font-bold text-white mt-0.5">
+              <div className="text-[15px] sm:text-[16px] font-bold text-white mt-0.5">
                 {telemetry.scoutConfidence}
               </div>
-              <div className="text-[11px] text-zinc-400">
+              <div className="text-[10.5px] sm:text-[11px] text-zinc-400">
                 Ventana: {telemetry.timeWindow || "Últimos 7 días"}
               </div>
             </div>
@@ -552,7 +552,7 @@ export function TrendingViralPicker({
             <div className="text-[10.5px] text-zinc-500">Reacciones masivas</div>
           </div>
 
-          <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-3">
+          <div className="col-span-2 sm:col-span-1 rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-3">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
               <Award size={13} className="text-amber-400" />
               <span>Gancho Top</span>
@@ -662,12 +662,12 @@ export function TrendingViralPicker({
         </div>
 
         {/* Filtros: Por Estado de Trazabilidad y por Nicho */}
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-800/80 pt-4">
-          {/* Tabs de Estado */}
-          <div className="flex items-center gap-1.5 rounded-xl bg-zinc-950/80 p-1 border border-zinc-800">
+        <div className="mt-5 flex flex-col md:flex-row md:items-center justify-between gap-3 border-t border-zinc-800/80 pt-4">
+          {/* Tabs de Estado con scroll horizontal suave en móviles */}
+          <div className="flex items-center gap-1.5 rounded-xl bg-zinc-950/80 p-1 border border-zinc-800 overflow-x-auto no-scrollbar max-w-full">
             <button
               onClick={() => setStatusFilter("all")}
-              className={`rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition ${statusFilter === "all"
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition ${statusFilter === "all"
                   ? "bg-signal text-black shadow-md"
                   : "text-zinc-400 hover:text-white"
                 }`}
@@ -676,7 +676,7 @@ export function TrendingViralPicker({
             </button>
             <button
               onClick={() => setStatusFilter("available")}
-              className={`rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition ${statusFilter === "available"
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition ${statusFilter === "available"
                   ? "bg-emerald-500 text-black shadow-md"
                   : "text-zinc-400 hover:text-emerald-300"
                 }`}
@@ -685,7 +685,7 @@ export function TrendingViralPicker({
             </button>
             <button
               onClick={() => setStatusFilter("cloned")}
-              className={`rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition ${statusFilter === "cloned"
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition ${statusFilter === "cloned"
                   ? "bg-amber-400 text-black shadow-md"
                   : "text-zinc-400 hover:text-amber-300"
                 }`}
@@ -694,7 +694,7 @@ export function TrendingViralPicker({
             </button>
             <button
               onClick={() => setStatusFilter("published")}
-              className={`rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition ${statusFilter === "published"
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition ${statusFilter === "published"
                   ? "bg-cyan-400 text-black shadow-md"
                   : "text-zinc-400 hover:text-cyan-300"
                 }`}
@@ -703,16 +703,16 @@ export function TrendingViralPicker({
             </button>
           </div>
 
-          {/* Filtros por Nicho */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-500 mr-1 flex items-center gap-1">
+          {/* Filtros por Nicho con scroll horizontal suave en móviles */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar max-w-full py-1">
+            <span className="shrink-0 text-[11px] font-medium uppercase tracking-wider text-zinc-500 mr-1 flex items-center gap-1">
               <Filter size={12} /> Nicho:
             </span>
             {niches.map((n) => (
               <button
                 key={n}
                 onClick={() => setSelectedNiche(n)}
-                className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition ${selectedNiche === n
+                className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium transition ${selectedNiche === n
                     ? "bg-zinc-700 text-white font-semibold"
                     : "bg-zinc-900/60 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
                   }`}
@@ -908,13 +908,13 @@ export function TrendingViralPicker({
       </div>
 
       {/* Nota de pie informativa */}
-      <div className="flex items-center justify-between rounded-xl border border-zinc-800/70 bg-zinc-900/30 px-5 py-3 text-[12px] text-zinc-400">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between rounded-xl border border-zinc-800/70 bg-zinc-900/30 px-3.5 sm:px-5 py-3 text-[11px] sm:text-[12px] text-zinc-400 gap-2">
         <div className="flex items-center gap-2">
-          <Layers size={14} className="text-signal" />
-          <span>El Scout prioriza automáticamente en sus 2 barridos diarios los nichos y ganchos con mayor retención comprobada.</span>
+          <Layers size={14} className="text-signal shrink-0" />
+          <span>El Scout prioriza automáticamente en sus 2 barridos diarios los nichos con mayor retención comprobada.</span>
         </div>
-        <span className="text-[11px] font-medium text-zinc-300">
-          Usa la caja de texto inferior para videos manuales 👇
+        <span className="text-[10.5px] sm:text-[11px] font-medium text-zinc-300 shrink-0">
+          Usa la caja inferior para videos manuales 👇
         </span>
       </div>
 

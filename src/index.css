@@ -166,6 +166,14 @@
     opacity: 0.25;
   }
 }
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .pulse-dot {
   animation: pulse-dot 1.1s ease-in-out infinite;
 }

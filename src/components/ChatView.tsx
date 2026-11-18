@@ -63,7 +63,7 @@ export function ChatView({
   const [warning, setWarning] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [justApplied, setJustApplied] = useState(false);
-  const [showRadar, setShowRadar] = useState(true);
+  const [showRadar, setShowRadar] = useState(() => (typeof window !== "undefined" && window.innerWidth > 768) || project.chat.length === 0);
   const [radarKey, setRadarKey] = useState(0);
   const endRef = useRef<HTMLDivElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -260,24 +260,24 @@ export function ChatView({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-zinc-800/70 px-6 py-3.5">
-        <div className="flex items-center gap-3">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-signal to-lime-600 text-black shadow-[0_0_20px_rgba(200,250,90,0.25)]">
+      <header className="flex items-center justify-between border-b border-zinc-800/70 px-3.5 sm:px-6 py-2.5 sm:py-3.5">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="relative flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-signal to-lime-600 text-black shadow-[0_0_20px_rgba(200,250,90,0.25)]">
             <Bot size={17} strokeWidth={2.3} />
             <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-ink-950 bg-signal" />
           </div>
-          <div>
-            <div className="text-[13.5px] font-semibold text-zinc-100">
+          <div className="min-w-0">
+            <div className="text-[13px] sm:text-[13.5px] font-semibold text-zinc-100 truncate">
               Director CloneCinema
             </div>
-            <div className="text-[11px] text-zinc-500">
-              Planes, storyboard y renders · {project.name || "nuevo proyecto"}
+            <div className="text-[10.5px] sm:text-[11px] text-zinc-500 truncate">
+              {project.name || "Nuevo proyecto"}
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="btn btn-ghost !px-2.5 !py-1.5" onClick={onOpenStudio}>
-            <LayoutGrid size={13} /> Estudio
+        <div className="flex items-center gap-2 shrink-0">
+          <button className="btn btn-ghost !px-2 sm:!px-2.5 !py-1.5 text-xs" onClick={onOpenStudio}>
+            <LayoutGrid size={13} /> <span className="hidden xs:inline">Estudio</span>
             {project.shots.length > 0 && (
               <span className="rounded-full bg-signal/15 px-1.5 py-0.5 text-[10px] font-semibold text-signal">
                 {project.shots.length}
@@ -286,10 +286,10 @@ export function ChatView({
           </button>
           <div className="hidden items-center gap-1.5 sm:flex">
             {MODES.map((m) => (
-            <button
-              key={m.id}
-              title={m.hint}
-              onClick={() => onModeChange(m.id)}
+              <button
+                key={m.id}
+                title={m.hint}
+                onClick={() => onModeChange(m.id)}
                 className={`chip ${mode === m.id ? "chip-active" : ""}`}
               >
                 {m.label}
@@ -300,25 +300,25 @@ export function ChatView({
       </header>
 
       <div className="grid-bg flex-1 overflow-y-auto">
-        <div className={`mx-auto w-full px-6 py-8 ${mode === "clone" ? "max-w-6xl" : "max-w-3xl"}`}>
+        <div className={`mx-auto w-full px-3 sm:px-6 py-4 sm:py-8 ${mode === "clone" ? "max-w-6xl" : "max-w-3xl"}`}>
           {mode === "clone" ? (
-            <div className="mb-8">
+            <div className="mb-6 sm:mb-8">
               {project.chat.length > 0 && (
-                <div className="mb-5 flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-2.5 shadow-lg backdrop-blur">
+                <div className="mb-4 sm:mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-zinc-800 bg-zinc-900/70 px-3.5 py-2 sm:px-4 sm:py-2.5 shadow-lg backdrop-blur">
                   <div className="flex items-center gap-2">
-                    <span className="relative flex h-2.5 w-2.5">
+                    <span className="relative flex h-2.5 w-2.5 shrink-0">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-signal opacity-75"></span>
                       <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-signal"></span>
                     </span>
-                    <span className="text-[12px] font-bold text-white">Radar Scout Activo</span>
-                    <span className="text-[11px] text-zinc-400">· Ganadores listos para clonar con 1 clic</span>
+                    <span className="text-[11.5px] sm:text-[12px] font-bold text-white">Radar Scout</span>
+                    <span className="text-[10.5px] sm:text-[11px] text-zinc-400 hidden xs:inline">· Ganadores YouTube Shorts</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => setShowRadar(!showRadar)}
-                    className="rounded-lg bg-zinc-800 px-3 py-1.5 text-[11px] font-semibold text-zinc-200 hover:bg-signal hover:text-black transition cursor-pointer"
+                    className="rounded-lg bg-zinc-800 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10.5px] sm:text-[11px] font-semibold text-zinc-200 hover:bg-signal hover:text-black transition cursor-pointer"
                   >
-                    {showRadar ? "Ocultar Radar" : "Mostrar Radar de Ganadores"}
+                    {showRadar ? "Ocultar Radar" : "Ver Radar Ganador"}
                   </button>
                 </div>
               )}

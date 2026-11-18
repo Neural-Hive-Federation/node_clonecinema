@@ -178,7 +178,7 @@ export function AudioTab({
                         : "border-zinc-800/80 bg-zinc-900/40"
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="font-display text-[12px] font-bold text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded-md">
                           Plano {s.number}

@@ -64,7 +64,7 @@ export function StudioView({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="border-b border-zinc-800/70 px-6 pt-4">
+      <header className="border-b border-zinc-800/70 px-3.5 sm:px-6 pt-3 sm:pt-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <button
@@ -73,10 +73,10 @@ export function StudioView({
             >
               <ArrowLeft size={12} /> Volver al chat
             </button>
-            <h1 className="truncate font-display text-xl font-semibold text-white">
+            <h1 className="truncate font-display text-lg sm:text-xl font-semibold text-white">
               {project.title || project.name || "Proyecto sin título"}
             </h1>
-            <p className="mt-1 max-w-2xl truncate text-[12px] text-zinc-500">
+            <p className="mt-1 max-w-2xl truncate text-[11px] sm:text-[12px] text-zinc-500">
               {project.logline || project.brief || "Sin logline todavía."}
             </p>
           </div>
@@ -104,19 +104,19 @@ export function StudioView({
               {warningCount > 0 ? (
                 <>
                   <ShieldAlert size={12} className="text-amber-400 animate-pulse" />
-                  <span className="font-semibold">{warningCount} alertas de coherencia</span>
+                  <span className="font-semibold">{warningCount} alertas</span>
                 </>
               ) : (
                 <>
                   <ShieldCheck size={12} className="text-emerald-400" />
-                  <span>Coherencia verificada</span>
+                  <span>Coherencia OK</span>
                 </>
               )}
             </button>
           </div>
         </div>
 
-        <nav className="-mb-px mt-4 flex gap-1 overflow-x-auto">
+        <nav className="-mb-px mt-3 sm:mt-4 flex gap-1 overflow-x-auto no-scrollbar">
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -137,7 +137,7 @@ export function StudioView({
         </nav>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-6 py-6">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6">
         <div className="mx-auto max-w-6xl">
           {project.shots.length === 0 && tab !== "script" && (
             <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-[12px] text-amber-200/80">

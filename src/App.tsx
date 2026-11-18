@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Clapperboard, FolderOpen, X } from "lucide-react";
+import { Clapperboard, Film, FolderOpen, MessageSquare, Mic, X } from "lucide-react";
 import type { Project, Mode, ProjectUpdater, StudioTab } from "./types";
 import { PRESET_PROJECTS } from "./data/presets";
 import { createEmptyProject, uid } from "./lib/project";
@@ -143,21 +143,26 @@ export default function App() {
         </div>
       )}
 
-      <main className="relative flex min-w-0 flex-1 flex-col">
+      <main className="relative flex min-w-0 flex-1 flex-col pb-16 md:pb-0">
         <div className="flex items-center justify-between border-b border-zinc-800/80 px-4 py-2.5 md:hidden">
           <button
             className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200"
             onClick={() => setRailOpen(true)}
           >
             <Clapperboard size={16} className="text-signal" />
-            CloneCinema
+            <span className="truncate max-w-[170px]">{active.name || "CloneCinema"}</span>
           </button>
-          <button
-            className="flex items-center gap-1.5 rounded-lg border border-zinc-800 px-2.5 py-1.5 text-[11px] text-zinc-400"
-            onClick={() => setRailOpen(true)}
-          >
-            <FolderOpen size={12} /> {projects.length}
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-zinc-800/90 px-2 py-0.5 text-[10px] font-mono text-signal">
+              {active.format} · {active.duration}s
+            </span>
+            <button
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/60 px-2.5 py-1.5 text-[11px] text-zinc-300"
+              onClick={() => setRailOpen(true)}
+            >
+              <FolderOpen size={12} /> {projects.length}
+            </button>
+          </div>
         </div>
 
         {storageFull && (
@@ -189,6 +194,80 @@ export default function App() {
             />
           )}
         </div>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <nav className="flex md:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800/90 px-2 py-1.5 justify-around items-center text-xs shadow-2xl">
+          <button
+            onClick={() => setView("chat")}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
+              view === "chat"
+                ? "text-signal font-bold"
+                : "text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            <MessageSquare size={18} />
+            <span className="text-[10px]">Chat & Radar</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setView("studio");
+              if (!tab || tab === "script") setTab("storyboard");
+            }}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition relative ${
+              view === "studio" && tab === "storyboard"
+                ? "text-signal font-bold"
+                : "text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            <Film size={18} />
+            <span className="text-[10px]">Storyboard</span>
+            {active.shots.length > 0 && (
+              <span className="absolute top-1 right-2.5 flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-signal"></span>
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              setView("studio");
+              setTab("audio");
+            }}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
+              view === "studio" && tab === "audio"
+                ? "text-signal font-bold"
+                : "text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            <Mic size={18} />
+            <span className="text-[10px]">Audio & Voz</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setView("studio");
+              setTab("render");
+            }}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
+              view === "studio" && tab === "render"
+                ? "text-signal font-bold"
+                : "text-zinc-400 hover:text-zinc-200"
+            }`}
+          >
+            <Clapperboard size={18} />
+            <span className="text-[10px]">Render</span>
+          </button>
+
+          <button
+            onClick={() => setRailOpen(true)}
+            className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl text-zinc-400 hover:text-zinc-200 transition"
+          >
+            <FolderOpen size={18} />
+            <span className="text-[10px]">Proyectos</span>
+          </button>
+        </nav>
       </main>
     </div>
   );

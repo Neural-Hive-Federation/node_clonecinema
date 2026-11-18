@@ -72,35 +72,35 @@ export function ContinuityAuditModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md transition-all animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 sm:p-4 backdrop-blur-md transition-all animate-in fade-in"
       onClick={onClose}
     >
       <div
-        className="relative flex flex-col w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950 shadow-2xl"
+        className="relative flex flex-col w-full max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-zinc-800/80 px-6 py-4">
-          <div className="flex items-center gap-3">
+        <div className="flex items-start justify-between border-b border-zinc-800/80 px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div
-              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+              className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl border ${
                 isClean
                   ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
                   : "border-amber-500/30 bg-amber-500/10 text-amber-400"
               }`}
             >
-              {isClean ? <ShieldCheck size={22} /> : <ShieldAlert size={22} />}
+              {isClean ? <ShieldCheck size={20} /> : <ShieldAlert size={20} />}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h3 className="text-[15px] font-bold text-white">
-                  Auditoría de Continuidad & Coherencia
+                <h3 className="text-[14px] sm:text-[15px] font-bold text-white truncate">
+                  Auditoría de Continuidad
                 </h3>
-                <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
+                <span className="rounded-md bg-zinc-800 px-1.5 py-0.5 text-[9.5px] font-semibold text-zinc-300 shrink-0">
                   Director AI
                 </span>
               </div>
-              <p className="mt-0.5 text-[11.5px] text-zinc-400">
+              <p className="mt-0.5 text-[11px] sm:text-[11.5px] text-zinc-400 line-clamp-1">
                 {isClean
                   ? "El Director ha verificado todos los planos, actores y sets: todo está alineado."
                   : `Revisión en conjunto: ${warnings.length} advertencia${
@@ -112,14 +112,14 @@ export function ContinuityAuditModal({
 
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-white transition"
+            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-white transition shrink-0 ml-2"
           >
             <X size={16} />
           </button>
         </div>
 
         {/* Filter bar */}
-        <div className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-900/40 px-6 py-2">
+        <div className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-900/40 px-4 sm:px-6 py-2 overflow-x-auto no-scrollbar">
           <div className="flex gap-1.5">
             <button
               onClick={() => setFilter("all")}
