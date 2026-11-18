@@ -7,7 +7,8 @@ dist
 .DS_Store
 
 # Medios generados en local y temporales
-data/
+/data/
+/server/data/
 .tmp-*
 .freebuff/
 kaggle/test_output/
