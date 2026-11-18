@@ -1,0 +1,21 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+
+# Medios generados en local y temporales
+data/
+.tmp-*
+.freebuff/
+kaggle/test_output/
+scratch/
+
+# Secretos y credenciales
+*.pem
+*.key
+credentials.json
+kaggle.json
+.vercel

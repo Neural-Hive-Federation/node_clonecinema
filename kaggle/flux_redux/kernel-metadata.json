@@ -1,0 +1,13 @@
+{
+  "id": "wilycol/clonecinema-flux-1-redux-multi-reference",
+  "title": "CloneCinema FLUX.1 Redux Multi-Reference",
+  "code_file": "main.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "true",
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": []
+}

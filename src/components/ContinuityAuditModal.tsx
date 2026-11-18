@@ -1,0 +1,290 @@
+import React, { useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clapperboard,
+  Clock,
+  Info,
+  MapPin,
+  Package,
+  ShieldAlert,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+  Wand2,
+  X,
+  ArrowRight,
+} from "lucide-react";
+import type { Project, ProjectUpdater } from "../types";
+import { runContinuityAudit, type AuditIssue } from "../lib/continuityAudit";
+
+export function ContinuityAuditModal({
+  project,
+  patch,
+  onClose,
+  onProceedToRender,
+  isPreflightForRender = false,
+}: {
+  project: Project;
+  patch: ProjectUpdater;
+  onClose: () => void;
+  onProceedToRender?: () => void;
+  isPreflightForRender?: boolean;
+}) {
+  const issues = runContinuityAudit(project);
+  const errors = issues.filter((i) => i.severity === "error");
+  const warnings = issues.filter((i) => i.severity === "warning");
+  const infos = issues.filter((i) => i.severity === "info");
+
+  const [appliedFixes, setAppliedFixes] = useState<string[]>([]);
+  const [filter, setFilter] = useState<"all" | "warnings" | "suggestions">("all");
+
+  const filteredIssues = issues.filter((i) => {
+    if (filter === "warnings") return i.severity === "warning" || i.severity === "error";
+    if (filter === "suggestions") return i.severity === "info";
+    return true;
+  });
+
+  const handleApplyFix = (issueId: string, fixIndex: number) => {
+    const issue = issues.find((i) => i.id === issueId);
+    if (!issue || !issue.fixes || !issue.fixes[fixIndex]) return;
+
+    patch(issue.fixes[fixIndex].run(project));
+    setAppliedFixes((prev) => [...prev, `${issueId}_${fixIndex}`]);
+  };
+
+  const getCategoryIcon = (category: AuditIssue["category"]) => {
+    switch (category) {
+      case "character":
+        return <UserRound size={14} className="text-amber-400" />;
+      case "location":
+        return <MapPin size={14} className="text-cyan-400" />;
+      case "prop":
+        return <Package size={14} className="text-pink-400" />;
+      case "timing":
+        return <Clock size={14} className="text-yellow-400" />;
+      case "storyboard":
+        return <Clapperboard size={14} className="text-emerald-400" />;
+    }
+  };
+
+  const isClean = warnings.length === 0 && errors.length === 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md transition-all animate-in fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex flex-col w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between border-b border-zinc-800/80 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
+                isClean
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                  : "border-amber-500/30 bg-amber-500/10 text-amber-400"
+              }`}
+            >
+              {isClean ? <ShieldCheck size={22} /> : <ShieldAlert size={22} />}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-[15px] font-bold text-white">
+                  Auditoría de Continuidad & Coherencia
+                </h3>
+                <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-300">
+                  Director AI
+                </span>
+              </div>
+              <p className="mt-0.5 text-[11.5px] text-zinc-400">
+                {isClean
+                  ? "El Director ha verificado todos los planos, actores y sets: todo está alineado."
+                  : `Revisión en conjunto: ${warnings.length} advertencia${
+                      warnings.length === 1 ? "" : "s"
+                    } de continuidad detectada${warnings.length === 1 ? "" : "s"}.`}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-800 hover:text-white transition"
+          >
+            <X size={16} />
+          </button>
+        </div>
+
+        {/* Filter bar */}
+        <div className="flex items-center justify-between border-b border-zinc-800/60 bg-zinc-900/40 px-6 py-2">
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => setFilter("all")}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition ${
+                filter === "all"
+                  ? "bg-zinc-800 text-white shadow-xs"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              Todas ({issues.length})
+            </button>
+            <button
+              onClick={() => setFilter("warnings")}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition ${
+                filter === "warnings"
+                  ? "bg-zinc-800 text-amber-300 shadow-xs"
+                  : "text-zinc-400 hover:text-amber-300"
+              }`}
+            >
+              Advertencias ({warnings.length + errors.length})
+            </button>
+            <button
+              onClick={() => setFilter("suggestions")}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition ${
+                filter === "suggestions"
+                  ? "bg-zinc-800 text-zinc-200 shadow-xs"
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+            >
+              Sugerencias ({infos.length})
+            </button>
+          </div>
+
+          <span className="text-[10.5px] text-zinc-500">
+            {project.shots.length} planos · {project.characters.length} personajes ·{" "}
+            {project.locations.length} sets · {project.props.length} props
+          </span>
+        </div>
+
+        {/* Issue list */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-3">
+          {filteredIssues.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <CheckCircle2 size={36} className="text-emerald-400 mb-2" />
+              <h4 className="text-[13.5px] font-semibold text-zinc-200">
+                ¡Todo en perfecta coherencia!
+              </h4>
+              <p className="mt-1 max-w-sm text-[11.5px] text-zinc-500">
+                No hay elementos huérfanos ni discrepancias entre los planos del Storyboard y las
+                referencias de Reparto & Sets.
+              </p>
+            </div>
+          ) : (
+            filteredIssues.map((issue) => {
+              return (
+                <div
+                  key={issue.id}
+                  className={`rounded-xl border p-3.5 transition space-y-2.5 ${
+                    issue.severity === "error"
+                      ? "border-red-500/30 bg-red-500/5"
+                      : issue.severity === "warning"
+                      ? "border-amber-500/30 bg-amber-500/5"
+                      : "border-zinc-800 bg-zinc-900/40"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <div className="mt-0.5">{getCategoryIcon(issue.category)}</div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-[12.5px] font-bold text-zinc-200">{issue.title}</h4>
+                          {issue.shotNumber && (
+                            <span className="rounded bg-black/60 px-1.5 py-0.5 text-[9.5px] font-semibold text-zinc-400">
+                              Plano {issue.shotNumber}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-400">
+                          {issue.description}
+                        </p>
+                        {issue.detail && (
+                          <p className="mt-1 text-[10.5px] text-zinc-500 italic">
+                            💡 {issue.detail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 1-Click Fix Actions */}
+                  {issue.fixes && issue.fixes.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-zinc-800/60">
+                      <span className="text-[10px] font-medium text-zinc-500">Acción sugerida:</span>
+                      {issue.fixes.map((fix, idx) => {
+                        const isApplied = appliedFixes.includes(`${issue.id}_${fixIndexKey(idx)}`);
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            disabled={isApplied}
+                            onClick={() => handleApplyFix(issue.id, idx)}
+                            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10.5px] font-semibold transition ${
+                              isApplied
+                                ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                : "bg-zinc-800 text-signal border border-zinc-700/80 hover:bg-zinc-700 hover:border-signal/50"
+                            }`}
+                          >
+                            {isApplied ? (
+                              <>
+                                <CheckCircle2 size={11} /> Aplicado
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 size={11} /> {fix.label}
+                              </>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-zinc-800/80 bg-zinc-900/60 px-6 py-3.5">
+          <span className="text-[11px] text-zinc-500">
+            {isClean
+              ? "El proyecto está listo para pasar al rodaje."
+              : "Puedes resolver las alertas o continuar según tu visión creativa."}
+          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn btn-ghost text-[11.5px]"
+            >
+              {isPreflightForRender ? "Volver a Editar" : "Cerrar"}
+            </button>
+
+            {isPreflightForRender && onProceedToRender && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onProceedToRender();
+                }}
+                className={`btn ${
+                  isClean ? "btn-primary" : "btn-primary bg-amber-500 text-black hover:bg-amber-400"
+                } text-[11.5px] flex items-center gap-1.5`}
+              >
+                Continuar a Render <ArrowRight size={13} />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function fixIndexKey(idx: number): string {
+  return String(idx);
+}
