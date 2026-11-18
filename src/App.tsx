@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Clapperboard, Film, FolderOpen, MessageSquare, Mic, X } from "lucide-react";
 import type { Project, Mode, ProjectUpdater, StudioTab } from "./types";
-import { PRESET_PROJECTS } from "./data/presets";
+import { PRESET_PROJECTS, RADAR_SOCIAL_PRESET } from "./data/presets";
 import { createEmptyProject, uid } from "./lib/project";
 import { LeftRail } from "./components/LeftRail";
 import { ChatView } from "./components/ChatView";
@@ -16,7 +16,12 @@ export default function App() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) return parsed;
+        if (Array.isArray(parsed) && parsed.length) {
+          if (!parsed.some((p: Project) => p.id === "prj-radar-social")) {
+            return [RADAR_SOCIAL_PRESET, ...parsed];
+          }
+          return parsed;
+        }
       }
     } catch {
       /* storage corrupt: fall through to presets */
@@ -26,7 +31,7 @@ export default function App() {
 
   const [activeId, setActiveId] = useState<string>(() => {
     const saved = localStorage.getItem(ACTIVE_KEY);
-    return saved || "";
+    return saved || "prj-radar-social";
   });
 
   const [view, setView] = useState<"chat" | "studio">("chat");
