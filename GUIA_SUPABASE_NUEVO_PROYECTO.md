@@ -17,7 +17,7 @@ Esta guía documenta la creación, configuración y despliegue del proyecto de S
 3. Configuración recomendada:
    * **Organization:** `Quantum Ops` (o tu organización dedicada).
    * **Project name:** `CloneCinema-Studio`.
-   * **Database Password:** `Beatriz-y-Wily` (almacenada de forma segura en `credenciales.md`).
+   * **Database Password:** `Be****************` (consultar valor en `credenciales.md`).
    * **Region:** `Americas` (`East US - Ohio / us-east-2` o `East US - us-east-1`).
    * **Pricing Plan:** `Free tier` ($0/mes — incluye 1 GB Storage, 500 MB Postgres, 5 GB Egress).
 4. Espera ~1 minuto mientras se aprovisiona la infraestructura.
@@ -63,20 +63,20 @@ Para consultarlas:
 ## 🔗 PASO 4: Conectar las Claves a CloneCinema
 
 ### A. En tu Entorno Local (PC) — ¡YA APLICADO POR BEATRIZ! ✅
-Tu archivo [`CloneCinema/.env`](file:///c:/Users/Usuario/Documents/CloneCinema/.env) (protegido por `.gitignore`) ya contiene todas las variables activas:
+Tu archivo local [`CloneCinema/.env`](file:///c:/Users/Usuario/Documents/CloneCinema/.env) (blindado e ignorado por `.gitignore`) ya contiene todas las variables activas:
 ```env
 # Supabase Cloud — CloneCinema-Studio
-SUPABASE_URL="https://micjwzatshemmovaneix.supabase.co"
-SUPABASE_PUBLISHABLE_KEY="sb_publishable_q9_-nv7catSMBhbQ650-Vg_OeMPjuZb"
-SUPABASE_ANON_KEY="sb_publishable_q9_-nv7catSMBhbQ650-Vg_OeMPjuZb"
-SUPABASE_SECRET_KEY="[SECRETO EN CREDENCIALES.MD]"
-SUPABASE_SERVICE_ROLE_KEY="[SECRETO EN CREDENCIALES.MD]"
-SUPABASE_JWKS_URL="https://micjwzatshemmovaneix.supabase.co/auth/v1/.well-known/jwks.json"
+SUPABASE_URL="https://micj****************.supabase.co"
+SUPABASE_PUBLISHABLE_KEY="sb_publishable_q9********************"
+SUPABASE_ANON_KEY="sb_publishable_q9********************"
+SUPABASE_SECRET_KEY="sb_secret_1O********************"
+SUPABASE_SERVICE_ROLE_KEY="sb_secret_1O********************"
+SUPABASE_JWKS_URL="https://micj****************.supabase.co/auth/v1/.well-known/jwks.json"
 
-VITE_SUPABASE_URL="https://micjwzatshemmovaneix.supabase.co"
-VITE_SUPABASE_ANON_KEY="sb_publishable_q9_-nv7catSMBhbQ650-Vg_OeMPjuZb"
+VITE_SUPABASE_URL="https://micj****************.supabase.co"
+VITE_SUPABASE_ANON_KEY="sb_publishable_q9********************"
 ```
-*(Las claves reales y completas reposan blindadas en la bóveda de seguridad `credenciales.md`).*
+*(Las claves reales y completas permanecen blindadas en tu archivo local privado `credenciales.md`).*
 
 ### B. En el Despliegue de Vercel (Producción Web & Móvil) — ¡YA APLICADO POR BEATRIZ! ✅
 > [!IMPORTANT]
@@ -104,4 +104,4 @@ Variables configuradas en Producción:
 ## 🌐 URLs Oficiales del Nodo CloneCinema
 * 🚀 **Despliegue Vercel:** [node-clonecinema.vercel.app](https://node-clonecinema.vercel.app)
 * 🐙 **Repositorio GitHub:** [Neural-Hive-Federation/node_clonecinema](https://github.com/Neural-Hive-Federation/node_clonecinema)
-* ⚡ **Dashboard Supabase:** [micjwzatshemmovaneix.supabase.co](https://supabase.com/dashboard/project/micjwzatshemmovaneix)
+* ⚡ **Dashboard Supabase:** [Panel Supabase](https://supabase.com/dashboard) (Proyecto `CloneCinema-Studio`)
