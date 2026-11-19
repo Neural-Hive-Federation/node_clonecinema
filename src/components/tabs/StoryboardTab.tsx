@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { AudioLines, ImageIcon, Layers, Maximize2, Plus, Sparkles, Trash2, Volume2, Wand2, X } from "lucide-react";
+import { AudioLines, ImageIcon, Layers, Maximize2, Plus, Sparkles, Trash2, Upload, Volume2, Wand2, X } from "lucide-react";
 import type { Shot, Project, ProjectUpdater } from "../../types";
 import { generateImage, generateSpeech, isPaymentRequired } from "../../lib/api";
+import { uploadImageFile } from "../../lib/imageUpload";
 import { useSession } from "../../context/SessionContext";
 import { uid } from "../../lib/project";
 import { Field, FORMAT_CLASS, Section, Spinner, EmptyState, ImageLightbox } from "../ui";
@@ -16,6 +17,8 @@ export function StoryboardTab({
   const [selectedId, setSelectedId] = useState<string | null>(project.shots[0]?.id ?? null);
   const [loadingIds, setLoadingIds] = useState<string[]>([]);
   const [loadingAudioId, setLoadingAudioId] = useState<string | null>(null);
+  const [draggingShotId, setDraggingShotId] = useState<string | null>(null);
+  const [isDraggingInspector, setIsDraggingInspector] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bulk, setBulk] = useState(false);
   const [useMultiref, setUseMultiref] = useState(true);
@@ -35,6 +38,20 @@ export function StoryboardTab({
       setError(`Error generando voz del plano: ${err?.message || "Fallo"}`);
     } finally {
       setLoadingAudioId(null);
+    }
+  }
+
+  async function handleUploadShot(shot: Shot, file: File) {
+    if (!file) return;
+    setLoadingIds((prev) => [...prev, shot.id]);
+    setError(null);
+    try {
+      const url = await uploadImageFile(file);
+      updateShot(shot.id, { imageUrl: url });
+    } catch (err: any) {
+      setError(err?.message || `Error al subir imagen para el Plano ${shot.number}`);
+    } finally {
+      setLoadingIds((prev) => prev.filter((id) => id !== shot.id));
     }
   }
 
@@ -232,8 +249,35 @@ export function StoryboardTab({
                   }`}
                 >
                   <div
-                    className={`relative ${FORMAT_CLASS[project.format] || "aspect-video"} w-full overflow-hidden bg-gradient-to-br from-zinc-800 via-zinc-900 to-black`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDraggingShotId(shot.id);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDraggingShotId(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDraggingShotId(null);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) handleUploadShot(shot, file);
+                    }}
+                    className={`relative ${FORMAT_CLASS[project.format] || "aspect-video"} w-full overflow-hidden bg-gradient-to-br from-zinc-800 via-zinc-900 to-black transition ${
+                      draggingShotId === shot.id ? "ring-2 ring-signal ring-inset" : ""
+                    }`}
                   >
+                    {/* Drag and Drop Active Overlay */}
+                    {draggingShotId === shot.id && (
+                      <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/85 backdrop-blur-xs p-2 text-center animate-pulse border-2 border-dashed border-signal">
+                        <Upload size={24} className="text-signal" />
+                        <span className="text-[11px] font-bold text-signal mt-1">Soltar imagen en Plano {shot.number}</span>
+                      </div>
+                    )}
+
                     {shot.imageUrl ? (
                       <div className="relative h-full w-full group/img">
                         <img
@@ -258,7 +302,7 @@ export function StoryboardTab({
                         </button>
                       </div>
                     ) : (
-                      <div className="flex h-full flex-col items-center justify-center gap-2 text-zinc-700">
+                      <div className="flex h-full flex-col items-center justify-center gap-1.5 text-zinc-700 p-2 text-center">
                         {loading ? (
                           <Spinner size={18} />
                         ) : (
@@ -266,6 +310,9 @@ export function StoryboardTab({
                             <ImageIcon size={20} />
                             <span className="font-display text-2xl font-bold text-zinc-800">
                               {shot.number}
+                            </span>
+                            <span className="text-[9px] text-zinc-600 font-medium">
+                              Arrastra aquí tu foto
                             </span>
                           </>
                         )}
@@ -280,7 +327,28 @@ export function StoryboardTab({
                       </span>
                     </div>
 
-                    <div className="absolute right-2 top-2 z-10">
+                    <div className="absolute right-2 top-2 z-10 flex items-center gap-1">
+                      {/* Botón rápido para subir imagen propia a este plano */}
+                      <input
+                        id={`upload-shot-${shot.id}`}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleUploadShot(shot, f);
+                          e.target.value = "";
+                        }}
+                      />
+                      <label
+                        htmlFor={`upload-shot-${shot.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        title={`Subir imagen propia para Plano ${shot.number}`}
+                        className="rounded-md bg-black/80 p-1 px-1.5 text-[10px] font-semibold text-zinc-300 hover:text-white opacity-0 group-hover:opacity-100 backdrop-blur transition border border-zinc-700/60 cursor-pointer shadow-md flex items-center gap-1"
+                      >
+                        <Upload size={10} className="text-zinc-400" /> Subir
+                      </label>
+
                       <button
                         type="button"
                         onClick={(e) => {
@@ -593,13 +661,13 @@ export function StoryboardTab({
                   </div>
                 )}
 
-                {/* Botón individual prominente para generar este plano específico */}
-                <div className="pt-0.5">
+                {/* Botón individual prominente para generar o subir imagen de este plano */}
+                <div className="grid grid-cols-[1fr_auto] gap-2 pt-0.5">
                   <button
                     type="button"
                     onClick={() => generate(selected)}
                     disabled={loadingIds.includes(selected.id)}
-                    className="btn btn-primary w-full flex items-center justify-center gap-2 py-2.5 text-[12px] font-bold shadow-md shadow-signal/15"
+                    className="btn btn-primary flex items-center justify-center gap-2 py-2.5 text-[12px] font-bold shadow-md shadow-signal/15"
                   >
                     {loadingIds.includes(selected.id) ? (
                       <>
@@ -612,12 +680,31 @@ export function StoryboardTab({
                       </>
                     )}
                   </button>
+
+                  <input
+                    id={`upload-inspector-${selected.id}`}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) handleUploadShot(selected, f);
+                      e.target.value = "";
+                    }}
+                  />
+                  <label
+                    htmlFor={`upload-inspector-${selected.id}`}
+                    title="Subir imagen propia externa para este plano (ChatGPT, Midjourney, etc.)"
+                    className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-zinc-700/80 bg-zinc-800/90 text-xs font-semibold text-zinc-200 hover:text-white hover:bg-zinc-700 hover:border-zinc-500 transition cursor-pointer shadow-md"
+                  >
+                    <Upload size={13} className="text-zinc-400" /> Subir
+                  </label>
                 </div>
 
                 {selected.imageUrl && (
                   <div className="space-y-1.5 pt-1">
                     <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                      <span>Keyframe generado</span>
+                      <span>Keyframe del plano</span>
                       <button
                         type="button"
                         onClick={() =>
@@ -633,7 +720,28 @@ export function StoryboardTab({
                       </button>
                     </div>
                     <div
-                      className="group relative cursor-zoom-in overflow-hidden rounded-xl border border-zinc-700/60 shadow-lg"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDraggingInspector(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDraggingInspector(false);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDraggingInspector(false);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) handleUploadShot(selected, file);
+                      }}
+                      className={`group relative cursor-zoom-in overflow-hidden rounded-xl border shadow-lg transition ${
+                        isDraggingInspector
+                          ? "border-signal border-dashed ring-2 ring-signal/60 bg-signal/15"
+                          : "border-zinc-700/60"
+                      }`}
                       onClick={() =>
                         setLightbox({
                           src: selected.imageUrl!,
@@ -641,18 +749,27 @@ export function StoryboardTab({
                           subtitle: selected.camera,
                         })
                       }
-                      title="Haz clic para ver en pantalla completa"
+                      title="Haz clic para ver en pantalla completa · O arrastra una imagen aquí para reemplazarla"
                     >
-                      <img
-                        src={selected.imageUrl}
-                        alt={`Keyframe plano ${selected.number}`}
-                        className="w-full object-cover transition group-hover:scale-102"
-                      />
-                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition backdrop-blur-xs">
-                        <span className="flex items-center gap-1.5 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-semibold text-white border border-white/20 shadow-xl">
-                          <Maximize2 size={13} /> Pantalla completa
-                        </span>
-                      </div>
+                      {isDraggingInspector ? (
+                        <div className="flex flex-col items-center justify-center py-12 text-center animate-pulse">
+                          <Upload size={28} className="text-signal" />
+                          <span className="text-xs font-bold text-signal mt-2">Soltar reemplazo para Plano {selected.number}</span>
+                        </div>
+                      ) : (
+                        <>
+                          <img
+                            src={selected.imageUrl}
+                            alt={`Keyframe plano ${selected.number}`}
+                            className="w-full object-cover transition group-hover:scale-102"
+                          />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition backdrop-blur-xs">
+                            <span className="flex items-center gap-1.5 rounded-lg bg-black/80 px-2.5 py-1 text-[11px] font-semibold text-white border border-white/20 shadow-xl">
+                              <Maximize2 size={13} /> Pantalla completa
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

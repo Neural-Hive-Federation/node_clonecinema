@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { ImageIcon, MapPin, Maximize2, Package, Plus, Sparkles, Trash2, UserCheck, UserRound, Zap } from "lucide-react";
+import { ImageIcon, MapPin, Maximize2, Package, Plus, Sparkles, Trash2, Upload, UserCheck, UserRound, Zap } from "lucide-react";
 import type { Character, LocationRef, Project, ProjectUpdater, PropItem } from "../../types";
 import { generateImage, generateImageVariations, isPaymentRequired } from "../../lib/api";
+import { uploadImageFile } from "../../lib/imageUpload";
 import { useSession } from "../../context/SessionContext";
 import { uid } from "../../lib/project";
 import { Section, Spinner, ImageLightbox } from "../ui";
@@ -18,6 +19,7 @@ export function CastTab({
   const [busyChr, setBusyChr] = useState<string | null>(null);
   const [busyLoc, setBusyLoc] = useState<string | null>(null);
   const [busyProp, setBusyProp] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<{
     src: string;
     title: string;
@@ -127,6 +129,52 @@ export function CastTab({
     }
   }
 
+  async function handleUploadCharacter(character: Character, file: File) {
+    if (!file) return;
+    setBusyChr(character.id);
+    setError(null);
+    try {
+      const url = await uploadImageFile(file);
+      const existing = character.castingVariations || [];
+      updateCharacter(character.id, {
+        avatarUrl: url,
+        castingVariations: [url, ...existing.filter((u) => u !== url)],
+      });
+    } catch (err: any) {
+      setError(err?.message || "Error al subir foto del personaje");
+    } finally {
+      setBusyChr(null);
+    }
+  }
+
+  async function handleUploadLocation(location: LocationRef, file: File) {
+    if (!file) return;
+    setBusyLoc(location.id);
+    setError(null);
+    try {
+      const url = await uploadImageFile(file);
+      updateLocation(location.id, { imageUrl: url });
+    } catch (err: any) {
+      setError(err?.message || "Error al subir imagen del set");
+    } finally {
+      setBusyLoc(null);
+    }
+  }
+
+  async function handleUploadProp(prop: PropItem, file: File) {
+    if (!file) return;
+    setBusyProp(prop.id);
+    setError(null);
+    try {
+      const url = await uploadImageFile(file);
+      updateProp(prop.id, { imageUrl: url });
+    } catch (err: any) {
+      setError(err?.message || "Error al subir imagen del prop");
+    } finally {
+      setBusyProp(null);
+    }
+  }
+
   return (
     <>
       <div className="space-y-6">
@@ -176,8 +224,25 @@ export function CastTab({
               {project.characters.map((c) => (
                 <div key={c.id} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 space-y-2.5 hover:border-zinc-700/80 transition">
                   <div className="flex gap-3">
-                    {/* Thumbnail Box */}
+                    {/* Thumbnail Box / Dropzone */}
                     <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDraggingId(c.id);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDraggingId(null);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDraggingId(null);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) handleUploadCharacter(c, file);
+                      }}
                       onClick={() =>
                         c.avatarUrl &&
                         setLightbox({
@@ -187,12 +252,19 @@ export function CastTab({
                           character: c,
                         })
                       }
-                      title={c.avatarUrl ? "Clic para ampliar foto" : "Sin retrato generado"}
-                      className={`relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-900 shadow-md ${
-                        c.avatarUrl ? "cursor-zoom-in group" : ""
-                      }`}
+                      title={c.avatarUrl ? "Clic para ampliar foto · O arrastra y suelta una imagen aquí" : "Arrastra y suelta una foto aquí o haz clic en Subir foto"}
+                      className={`relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-zinc-900 shadow-md transition ${
+                        draggingId === c.id
+                          ? "border-signal border-dashed ring-2 ring-signal/60 bg-signal/15 scale-105"
+                          : "border-zinc-700/60"
+                      } ${c.avatarUrl ? "cursor-zoom-in group" : ""}`}
                     >
-                      {c.avatarUrl ? (
+                      {draggingId === c.id ? (
+                        <div className="flex flex-col items-center justify-center p-1 text-center animate-pulse">
+                          <Upload size={18} className="text-signal" />
+                          <span className="text-[9px] font-bold text-signal leading-tight mt-1">Soltar</span>
+                        </div>
+                      ) : c.avatarUrl ? (
                         <>
                           <img src={c.avatarUrl} alt={c.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                           <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition backdrop-blur-xs">
@@ -200,7 +272,10 @@ export function CastTab({
                           </div>
                         </>
                       ) : (
-                        <UserRound size={28} style={{ color: c.color }} />
+                        <div className="flex flex-col items-center justify-center text-center p-1">
+                          <UserRound size={26} style={{ color: c.color }} />
+                          <span className="text-[8px] text-zinc-500 font-medium mt-0.5">Drag & Drop</span>
+                        </div>
                       )}
                       {busyChr === c.id && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/75 backdrop-blur-xs">
@@ -233,6 +308,26 @@ export function CastTab({
                           {busyChr === c.id ? <Spinner size={11} /> : <Sparkles size={11} />}
                           {c.avatarUrl ? "Regenerar casting" : "Generar casting (4 variaciones)"}
                         </button>
+
+                        {/* Botón e Input para Subir Imagen Propia (ChatGPT, Midjourney, etc) */}
+                        <input
+                          id={`upload-chr-${c.id}`}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleUploadCharacter(c, f);
+                            e.target.value = "";
+                          }}
+                        />
+                        <label
+                          htmlFor={`upload-chr-${c.id}`}
+                          title="Sube tu propia imagen generada externamente (ChatGPT, Midjourney, etc.)"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700/70 bg-zinc-800/80 px-2.5 py-1 text-[10.5px] font-semibold text-zinc-300 hover:text-white hover:bg-zinc-700 hover:border-zinc-500 transition cursor-pointer"
+                        >
+                          <Upload size={11} className="text-zinc-400" /> Subir foto
+                        </label>
 
                         {c.avatarUrl && (
                           <button
@@ -417,8 +512,25 @@ export function CastTab({
                 {project.locations.map((l) => (
                   <div key={l.id} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 space-y-2.5 hover:border-zinc-700/80 transition">
                     <div className="flex gap-3">
-                      {/* Unified Thumbnail Box */}
+                      {/* Unified Thumbnail Box / Dropzone */}
                       <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDraggingId(l.id);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDraggingId(null);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDraggingId(null);
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) handleUploadLocation(l, file);
+                        }}
                         onClick={() =>
                           l.imageUrl &&
                           setLightbox({
@@ -427,12 +539,19 @@ export function CastTab({
                             subtitle: `${l.timeOfDay} · ${l.description || "Concepto visual de set"}`,
                           })
                         }
-                        title={l.imageUrl ? "Clic para ampliar set" : "Sin concepto generado"}
-                        className={`relative flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-900 shadow-md ${
-                          l.imageUrl ? "cursor-zoom-in group" : ""
-                        }`}
+                        title={l.imageUrl ? "Clic para ampliar set · O arrastra y suelta una imagen aquí" : "Arrastra y suelta una imagen aquí o haz clic en Subir foto"}
+                        className={`relative flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-zinc-900 shadow-md transition ${
+                          draggingId === l.id
+                            ? "border-signal border-dashed ring-2 ring-signal/60 bg-signal/15 scale-105"
+                            : "border-zinc-700/60"
+                        } ${l.imageUrl ? "cursor-zoom-in group" : ""}`}
                       >
-                        {l.imageUrl ? (
+                        {draggingId === l.id ? (
+                          <div className="flex flex-col items-center justify-center p-1 text-center animate-pulse">
+                            <Upload size={18} className="text-signal" />
+                            <span className="text-[9px] font-bold text-signal leading-tight mt-1">Soltar</span>
+                          </div>
+                        ) : l.imageUrl ? (
                           <>
                             <img src={l.imageUrl} alt={l.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                             <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition backdrop-blur-xs">
@@ -440,7 +559,10 @@ export function CastTab({
                             </div>
                           </>
                         ) : (
-                          <MapPin size={24} style={{ color: l.color }} />
+                          <div className="flex flex-col items-center justify-center text-center p-1">
+                            <MapPin size={24} style={{ color: l.color }} />
+                            <span className="text-[8px] text-zinc-500 font-medium mt-0.5">Drag & Drop</span>
+                          </div>
                         )}
                         {busyLoc === l.id && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/75 backdrop-blur-xs">
@@ -463,7 +585,7 @@ export function CastTab({
                           placeholder="Hora del día (ej. Noche artificial)"
                           onChange={(e) => updateLocation(l.id, { timeOfDay: e.target.value })}
                         />
-                        <div className="pt-1">
+                        <div className="pt-1 flex flex-wrap items-center gap-1.5">
                           <button
                             type="button"
                             className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700/70 bg-zinc-800/80 px-2.5 py-1 text-[10.5px] font-semibold text-signal hover:bg-zinc-800 hover:border-signal/50 transition disabled:opacity-50"
@@ -473,6 +595,26 @@ export function CastTab({
                             {busyLoc === l.id ? <Spinner size={11} /> : <Sparkles size={11} />}
                             {l.imageUrl ? "Regenerar set" : "Generar concepto de set"}
                           </button>
+
+                          {/* Subir imagen propia para set */}
+                          <input
+                            id={`upload-loc-${l.id}`}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleUploadLocation(l, f);
+                              e.target.value = "";
+                            }}
+                          />
+                          <label
+                            htmlFor={`upload-loc-${l.id}`}
+                            title="Sube tu propia imagen para este set o locación"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700/70 bg-zinc-800/80 px-2.5 py-1 text-[10.5px] font-semibold text-zinc-300 hover:text-white hover:bg-zinc-700 hover:border-zinc-500 transition cursor-pointer"
+                          >
+                            <Upload size={11} className="text-zinc-400" /> Subir foto
+                          </label>
                         </div>
                       </div>
 
@@ -528,8 +670,25 @@ export function CastTab({
                 {project.props.map((p) => (
                   <div key={p.id} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 space-y-2.5 hover:border-zinc-700/80 transition">
                     <div className="flex gap-3">
-                      {/* Unified Thumbnail Box */}
+                      {/* Unified Thumbnail Box / Dropzone */}
                       <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDraggingId(p.id);
+                        }}
+                        onDragLeave={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDraggingId(null);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDraggingId(null);
+                          const file = e.dataTransfer.files?.[0];
+                          if (file) handleUploadProp(p, file);
+                        }}
                         onClick={() =>
                           p.imageUrl &&
                           setLightbox({
@@ -538,12 +697,19 @@ export function CastTab({
                             subtitle: `${p.category} · ${p.description || "Prop y objeto héroe"}`,
                           })
                         }
-                        title={p.imageUrl ? "Clic para ampliar prop" : "Sin imagen generada"}
-                        className={`relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-900 shadow-md ${
-                          p.imageUrl ? "cursor-zoom-in group" : ""
-                        }`}
+                        title={p.imageUrl ? "Clic para ampliar prop · O arrastra y suelta una imagen aquí" : "Arrastra y suelta una imagen aquí o haz clic en Subir foto"}
+                        className={`relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-zinc-900 shadow-md transition ${
+                          draggingId === p.id
+                            ? "border-signal border-dashed ring-2 ring-signal/60 bg-signal/15 scale-105"
+                            : "border-zinc-700/60"
+                        } ${p.imageUrl ? "cursor-zoom-in group" : ""}`}
                       >
-                        {p.imageUrl ? (
+                        {draggingId === p.id ? (
+                          <div className="flex flex-col items-center justify-center p-1 text-center animate-pulse">
+                            <Upload size={18} className="text-signal" />
+                            <span className="text-[9px] font-bold text-signal leading-tight mt-1">Soltar</span>
+                          </div>
+                        ) : p.imageUrl ? (
                           <>
                             <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover transition group-hover:scale-105" />
                             <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition backdrop-blur-xs">
@@ -551,7 +717,10 @@ export function CastTab({
                             </div>
                           </>
                         ) : (
-                          <Package size={24} style={{ color: p.color || "#f472b6" }} />
+                          <div className="flex flex-col items-center justify-center text-center p-1">
+                            <Package size={24} style={{ color: p.color || "#f472b6" }} />
+                            <span className="text-[8px] text-zinc-500 font-medium mt-0.5">Drag & Drop</span>
+                          </div>
                         )}
                         {busyProp === p.id && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/75 backdrop-blur-xs">
@@ -574,7 +743,7 @@ export function CastTab({
                           placeholder="Categoría (ej. Interfaz Digital, Espada)"
                           onChange={(e) => updateProp(p.id, { category: e.target.value })}
                         />
-                        <div className="pt-1">
+                        <div className="pt-1 flex flex-wrap items-center gap-1.5">
                           <button
                             type="button"
                             className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700/70 bg-zinc-800/80 px-2.5 py-1 text-[10.5px] font-semibold text-signal hover:bg-zinc-800 hover:border-signal/50 transition disabled:opacity-50"
@@ -584,6 +753,26 @@ export function CastTab({
                             {busyProp === p.id ? <Spinner size={11} /> : <Sparkles size={11} />}
                             {p.imageUrl ? "Regenerar prop" : "Generar imagen de prop"}
                           </button>
+
+                          {/* Subir imagen propia para prop */}
+                          <input
+                            id={`upload-prp-${p.id}`}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleUploadProp(p, f);
+                              e.target.value = "";
+                            }}
+                          />
+                          <label
+                            htmlFor={`upload-prp-${p.id}`}
+                            title="Sube tu propia imagen para este objeto o prop"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700/70 bg-zinc-800/80 px-2.5 py-1 text-[10.5px] font-semibold text-zinc-300 hover:text-white hover:bg-zinc-700 hover:border-zinc-500 transition cursor-pointer"
+                          >
+                            <Upload size={11} className="text-zinc-400" /> Subir foto
+                          </label>
                         </div>
                       </div>
 
