@@ -19,10 +19,13 @@ export default async function handler(req: any, res: any) {
   if (aspectRatio === "16:9") cfAspect = "horizontal";
   if (aspectRatio === "1:1") cfAspect = "square";
 
-  // Enriquecer prompt con descripciones de referencias si existen
+  // Enriquecer prompt con estética cinematográfica fotorrealista y evitar estilo cómic/dibujo
   let enrichedPrompt = prompt.trim();
+  if (!enrichedPrompt.toLowerCase().includes("photorealistic")) {
+    enrichedPrompt = `${enrichedPrompt}, raw photographic style, photorealistic 35mm film still, cinematic lighting, natural skin texture, 8k uhd, hyperrealistic`;
+  }
   if (references?.character) {
-    enrichedPrompt = `Subject matching character, ${enrichedPrompt}`;
+    enrichedPrompt = `Consistent protagonist actor portrait, ${enrichedPrompt}`;
   }
 
   try {
