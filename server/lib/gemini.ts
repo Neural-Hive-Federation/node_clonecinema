@@ -123,7 +123,6 @@ export async function generateGeminiSpeech(input: {
     model: "gemini-3.1-flash-tts-preview",
     contents: [{ parts: [{ text: cleanText }] }],
     config: {
-      systemInstruction: `You are a professional voice narrator. Speak the text clearly and naturally in a ${input.tone} tone. Read the exact text provided ONCE only. Never repeat phrases, never provide alternative takes, and never add conversational filler.`,
       responseModalities: [Modality.AUDIO],
       speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: input.voice } } },
     },
