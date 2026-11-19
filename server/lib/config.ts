@@ -17,9 +17,13 @@ function number(value: string | undefined, fallback: number): number {
 const configuredPort = Number(process.env.PORT);
 const port = Number.isFinite(configuredPort) && configuredPort > 0 ? configuredPort : 3000;
 
-const supabaseUrl = text(process.env.SUPABASE_URL);
-const supabaseAnonKey = text(process.env.SUPABASE_ANON_KEY);
-const supabaseServiceRoleKey = text(process.env.SUPABASE_SERVICE_ROLE_KEY);
+const supabaseUrl = text(process.env.SUPABASE_URL) || text(process.env.VITE_SUPABASE_URL);
+const supabaseAnonKey =
+  text(process.env.SUPABASE_ANON_KEY) ||
+  text(process.env.SUPABASE_PUBLISHABLE_KEY) ||
+  text(process.env.VITE_SUPABASE_ANON_KEY);
+const supabaseServiceRoleKey =
+  text(process.env.SUPABASE_SERVICE_ROLE_KEY) || text(process.env.SUPABASE_SECRET_KEY);
 
 const kaggleUsername = text(process.env.KAGGLE_USERNAME);
 const kaggleKey = text(process.env.KAGGLE_KEY);
