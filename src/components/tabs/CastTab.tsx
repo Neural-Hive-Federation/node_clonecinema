@@ -28,6 +28,7 @@ export function CastTab({
     character: Character;
     sheetUrl: string;
   } | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const { openPaywall, refreshAccount } = useSession();
 
@@ -53,6 +54,7 @@ export function CastTab({
   async function portrait(character: Character) {
     if (busyChr) return;
     setBusyChr(character.id);
+    setError(null);
     try {
       const loraBonus = character.loraConfig?.triggerWord ? `, ${character.loraConfig.triggerWord}` : "";
       const prompt = `Character reference sheet portrait, 4 distinct view angles in 2x2 grid, neutral studio light, ${character.name}: ${character.description}. ${
@@ -65,7 +67,11 @@ export function CastTab({
       // Abrir automáticamente el selector de casting para que el usuario elija su favorita
       setCastingTarget({ character, sheetUrl: avatarUrl });
     } catch (err: any) {
-      if (isPaymentRequired(err)) openPaywall(err.message);
+      if (isPaymentRequired(err)) {
+        openPaywall(err.message);
+      } else {
+        setError(err?.message || "Error al generar casting");
+      }
     } finally {
       setBusyChr(null);
     }
@@ -74,13 +80,18 @@ export function CastTab({
   async function generateLocation(location: LocationRef) {
     if (busyLoc) return;
     setBusyLoc(location.id);
+    setError(null);
     try {
       const prompt = `Cinematic environment film still, ${location.name}, ${location.timeOfDay} lighting atmosphere, ${location.description}, architectural and landscape photography, hyper-detailed, 8k resolution, cinematic`;
       const imageUrl = await generateImage(prompt, project.format === "16:9" ? "16:9" : "9:16");
       updateLocation(location.id, { imageUrl });
       void refreshAccount();
     } catch (err: any) {
-      if (isPaymentRequired(err)) openPaywall(err.message);
+      if (isPaymentRequired(err)) {
+        openPaywall(err.message);
+      } else {
+        setError(err?.message || "Error al generar set");
+      }
     } finally {
       setBusyLoc(null);
     }
@@ -89,13 +100,18 @@ export function CastTab({
   async function generateProp(prop: PropItem) {
     if (busyProp) return;
     setBusyProp(prop.id);
+    setError(null);
     try {
       const prompt = `Cinematic hero prop studio shot, ${prop.name}, category: ${prop.category}, ${prop.description}, detailed materials, dramatic rim lighting, product commercial photography, 8k resolution`;
       const imageUrl = await generateImage(prompt, "1:1");
       updateProp(prop.id, { imageUrl });
       void refreshAccount();
     } catch (err: any) {
-      if (isPaymentRequired(err)) openPaywall(err.message);
+      if (isPaymentRequired(err)) {
+        openPaywall(err.message);
+      } else {
+        setError(err?.message || "Error al generar prop");
+      }
     } finally {
       setBusyProp(null);
     }
@@ -104,6 +120,18 @@ export function CastTab({
   return (
     <>
       <div className="space-y-6">
+        {error && (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300 flex items-center justify-between">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={() => setError(null)}
+              className="text-zinc-400 hover:text-white ml-2 text-sm"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {/* 1. Protagonistas y Personajes */}
         <Section
           title="Personajes y Protagonistas"
