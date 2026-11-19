@@ -149,6 +149,7 @@ export interface Character {
   wardrobe?: string;
   color: string;
   avatarUrl?: string;
+  castingVariations?: string[];
   loraConfig?: LoraConfig;
 }
 

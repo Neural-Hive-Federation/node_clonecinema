@@ -163,6 +163,25 @@ export async function generateImage(
   throw new Error(data.error || "Sin imagen");
 }
 
+export async function generateImageVariations(
+  prompt: string,
+  aspectRatio: string = "1:1",
+  count: number = 4
+): Promise<string[]> {
+  const data = await post<{
+    success: boolean;
+    imageUrl?: string;
+    imageUrls?: string[];
+    error?: string;
+  }>("/api/generate/image", { prompt, aspectRatio, count });
+
+  if (Array.isArray(data.imageUrls) && data.imageUrls.length > 0) {
+    return data.imageUrls;
+  }
+  if (data.imageUrl) return [data.imageUrl];
+  throw new Error(data.error || "Sin imágenes generadas");
+}
+
 export function startVideo(
   prompt: string,
   aspectRatio: string,

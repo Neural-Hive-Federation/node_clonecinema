@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ImageIcon, MapPin, Maximize2, Package, Plus, Sparkles, Trash2, UserCheck, UserRound, Zap } from "lucide-react";
 import type { Character, LocationRef, Project, ProjectUpdater, PropItem } from "../../types";
-import { generateImage, isPaymentRequired } from "../../lib/api";
+import { generateImage, generateImageVariations, isPaymentRequired } from "../../lib/api";
 import { useSession } from "../../context/SessionContext";
 import { uid } from "../../lib/project";
 import { Section, Spinner, ImageLightbox } from "../ui";
@@ -26,7 +26,7 @@ export function CastTab({
   } | null>(null);
   const [castingTarget, setCastingTarget] = useState<{
     character: Character;
-    sheetUrl: string;
+    variations: string[];
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,15 +57,25 @@ export function CastTab({
     setError(null);
     try {
       const loraBonus = character.loraConfig?.triggerWord ? `, ${character.loraConfig.triggerWord}` : "";
-      const prompt = `Character reference sheet portrait, 4 distinct view angles in 2x2 grid, neutral studio light, ${character.name}: ${character.description}. ${
+      const prompt = `Cinematic character portrait photo, ${character.name}: ${character.description}. ${
         character.wardrobe ? `Wardrobe: ${character.wardrobe}.` : ""
-      }${loraBonus} Consistent identity, front view, 3/4 view, cinematic 8k aesthetic`;
-      const avatarUrl = await generateImage(prompt, "1:1");
-      updateCharacter(character.id, { avatarUrl });
+      }${loraBonus} 8k resolution, raw 35mm film headshot, dramatic studio lighting, sharp facial features, natural skin texture`;
+
+      // Se envían 4 solicitudes independientes en paralelo con el mismo prompt
+      const urls = await generateImageVariations(prompt, "1:1", 4);
+      const chosenAvatar = urls[0] || character.avatarUrl;
+
+      updateCharacter(character.id, {
+        avatarUrl: chosenAvatar,
+        castingVariations: urls,
+      });
       void refreshAccount();
 
-      // Abrir automáticamente el selector de casting para que el usuario elija su favorita
-      setCastingTarget({ character, sheetUrl: avatarUrl });
+      // Abrir automáticamente el selector con las 4 variaciones fotográficas reales
+      setCastingTarget({
+        character: { ...character, avatarUrl: chosenAvatar, castingVariations: urls },
+        variations: urls,
+      });
     } catch (err: any) {
       if (isPaymentRequired(err)) {
         openPaywall(err.message);
@@ -228,7 +238,10 @@ export function CastTab({
                           <button
                             type="button"
                             className="inline-flex items-center gap-1.5 rounded-lg border border-signal/40 bg-signal/10 px-2.5 py-1 text-[10.5px] font-bold text-signal hover:bg-signal/20 transition"
-                            onClick={() => setCastingTarget({ character: c, sheetUrl: c.avatarUrl! })}
+                            onClick={() => {
+                              const vars = c.castingVariations?.length ? c.castingVariations : [c.avatarUrl!];
+                              setCastingTarget({ character: c, variations: vars });
+                            }}
                             title="Elegir cuál de las 4 variaciones será el rostro oficial"
                           >
                             <UserCheck size={11} /> Elegir de las 4
@@ -609,9 +622,11 @@ export function CastTab({
                 type="button"
                 onClick={() => {
                   const targetChar = lightbox.character!;
-                  const sheet = lightbox.src;
+                  const vars = targetChar.castingVariations?.length
+                    ? targetChar.castingVariations
+                    : [lightbox.src];
                   setLightbox(null);
-                  setCastingTarget({ character: targetChar, sheetUrl: sheet });
+                  setCastingTarget({ character: targetChar, variations: vars });
                 }}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-signal px-3.5 py-2 text-[11.5px] font-bold text-black shadow-lg hover:bg-lime-400 transition cursor-pointer"
               >
@@ -627,9 +642,9 @@ export function CastTab({
       {castingTarget && (
         <CastingPickerModal
           character={castingTarget.character}
-          sheetUrl={castingTarget.sheetUrl}
-          onSelectAvatar={(croppedUrl) => {
-            updateCharacter(castingTarget.character.id, { avatarUrl: croppedUrl });
+          variations={castingTarget.variations}
+          onSelectAvatar={(selectedUrl) => {
+            updateCharacter(castingTarget.character.id, { avatarUrl: selectedUrl });
             setCastingTarget(null);
           }}
           onClose={() => setCastingTarget(null)}
