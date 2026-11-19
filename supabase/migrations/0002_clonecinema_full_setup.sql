@@ -89,7 +89,7 @@ create table if not exists public.projects (
   source_url text,
   source_meta jsonb not null default '{}'::jsonb,
   viral_dna jsonb not null default '{}'::jsonb,
-  references jsonb not null default '[]'::jsonb,
+  "references" jsonb not null default '[]'::jsonb,
   shots jsonb not null default '[]'::jsonb,
   characters jsonb not null default '[]'::jsonb,
   locations jsonb not null default '[]'::jsonb,
