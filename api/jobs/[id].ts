@@ -1,1 +1,252 @@
-export { default, config } from "../generate/jobs/[id]";
+import { createClient } from "@supabase/supabase-js";
+
+export const config = {
+  maxDuration: 60,
+};
+
+const KAGGLE_API_BASE = "https://api.kaggle.com/v1";
+
+function getKaggleAuthHeaders(): HeadersInit {
+  const token =
+    process.env.KAGGLE_KEY ||
+    process.env.KAGGLE_API_TOKEN ||
+    "";
+
+  if (!token) {
+    throw new Error(
+      "Kaggle API token no configurado. Define KAGGLE_KEY en las variables de entorno."
+    );
+  }
+
+  return {
+    Authorization: `Bearer ${token.trim()}`,
+    "Content-Type": "application/json",
+  };
+}
+
+async function getKaggleKernelStatus(params: {
+  userName: string;
+  kernelSlug: string;
+}): Promise<string> {
+  const headers = getKaggleAuthHeaders();
+
+  const res = await fetch(`${KAGGLE_API_BASE}/kernels.KernelsApiService/GetKernelSessionStatus`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      userName: params.userName,
+      kernelSlug: params.kernelSlug,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Kaggle GetStatus error (${res.status}): ${errorText.slice(0, 300)}`);
+  }
+
+  const data = (await res.json()) as any;
+  return data.status || "QUEUED";
+}
+
+async function getKaggleKernelOutput(params: {
+  userName: string;
+  kernelSlug: string;
+}): Promise<{ files?: { fileName: string; url: string }[]; log?: string }> {
+  const headers = getKaggleAuthHeaders();
+
+  const res = await fetch(`${KAGGLE_API_BASE}/kernels.KernelsApiService/ListKernelSessionOutput`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      userName: params.userName,
+      kernelSlug: params.kernelSlug,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Kaggle ListOutput error (${res.status}): ${errorText.slice(0, 300)}`);
+  }
+
+  return (await res.json()) as any;
+}
+
+function getSupabaseAdmin() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    "";
+
+  if (!url || !key) {
+    throw new Error("Supabase credentials no configuradas en el entorno.");
+  }
+
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+export default async function handler(req: any, res: any) {
+  try {
+    const { id } = req.query;
+    if (!id || typeof id !== "string") {
+      return res.status(400).json({ error: "Falta el id del trabajo." });
+    }
+
+    const supabase = getSupabaseAdmin();
+    const { data: job, error: jobErr } = await supabase
+      .from("ai_jobs")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (jobErr) {
+      console.error("[jobs/[id] Query Error]:", jobErr);
+      return res.status(500).json({ error: "Error consultando el trabajo en base de datos." });
+    }
+
+    if (!job) {
+      return res.status(404).json({ error: "Trabajo no encontrado o expirado." });
+    }
+
+    // 1. Si ya está completado
+    if (job.status === "done") {
+      return res.status(200).json({
+        success: true,
+        jobId: job.id,
+        status: "done",
+        done: true,
+        imageUrl: job.kind === "image" ? job.output_url : undefined,
+        videoUrl: job.kind === "video" ? job.output_url : undefined,
+      });
+    }
+
+    // 2. Si ya falló
+    if (job.status === "error") {
+      return res.status(200).json({
+        success: false,
+        jobId: job.id,
+        status: "error",
+        done: true,
+        error: job.error || "La generación en Kaggle falló.",
+      });
+    }
+
+    // 3. Si es un trabajo de Kaggle, consultamos el estado real del cuaderno
+    if (job.provider === "kaggle") {
+      const userName = process.env.KAGGLE_USERNAME || "wilycol";
+      const kernelSlug = job.kernel_ref ? job.kernel_ref.split("/").pop()! : "clonecinema-flux-image";
+
+      try {
+        const kStatus = await getKaggleKernelStatus({ userName, kernelSlug });
+
+        if (kStatus === "COMPLETE") {
+          const output = await getKaggleKernelOutput({ userName, kernelSlug });
+          const imgFile = output.files?.find(
+            (f) =>
+              f.fileName.endsWith(".png") ||
+              f.fileName.endsWith(".jpg") ||
+              f.fileName.endsWith(".jpeg")
+          );
+
+          if (imgFile && imgFile.url) {
+            // Descargar de Kaggle y subir permanentemente a Supabase Storage
+            const imgRes = await fetch(imgFile.url);
+            if (!imgRes.ok) {
+              throw new Error(`Error descargando resultado de Kaggle: ${imgRes.status}`);
+            }
+
+            const buf = Buffer.from(await imgRes.arrayBuffer());
+            const filename = `kaggle_${job.id}_${Date.now()}.png`;
+
+            const { error: upErr } = await supabase.storage
+              .from("keyframes")
+              .upload(filename, buf, {
+                contentType: "image/png",
+                upsert: true,
+              });
+
+            if (upErr) {
+              console.error("[Storage Upload Error]:", upErr);
+            }
+
+            const { data: pubData } = supabase.storage
+              .from("keyframes")
+              .getPublicUrl(filename);
+
+            const finalUrl = pubData?.publicUrl || imgFile.url;
+
+            // Actualizar estado del job en base de datos
+            await supabase
+              .from("ai_jobs")
+              .update({
+                status: "done",
+                output_url: finalUrl,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", job.id);
+
+            return res.status(200).json({
+              success: true,
+              jobId: job.id,
+              status: "done",
+              done: true,
+              imageUrl: finalUrl,
+            });
+          }
+        }
+
+        if (kStatus === "ERROR" || kStatus === "CANCELLED") {
+          await supabase
+            .from("ai_jobs")
+            .update({
+              status: "error",
+              error: `El cuaderno de Kaggle finalizó con estado: ${kStatus}`,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", job.id);
+
+          return res.status(200).json({
+            success: false,
+            jobId: job.id,
+            status: "error",
+            done: true,
+            error: `El cuaderno de Kaggle finalizó con estado: ${kStatus}`,
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          jobId: job.id,
+          status: "running",
+          done: false,
+        });
+      } catch (kErr: any) {
+        console.warn("[Kaggle check error]:", kErr?.message || kErr);
+        return res.status(200).json({
+          success: true,
+          jobId: job.id,
+          status: "running",
+          done: false,
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      jobId: job.id,
+      status: job.status || "running",
+      done: false,
+    });
+  } catch (globalErr: any) {
+    console.error("[jobs/[id] Fatal Handler Error]:", globalErr);
+    return res.status(500).json({
+      success: false,
+      error: globalErr?.message || "Error consultando el estado del trabajo.",
+      details: String(globalErr),
+    });
+  }
+}
