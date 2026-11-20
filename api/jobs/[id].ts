@@ -145,27 +145,29 @@ export default async function handler(req: any, res: any) {
 
         if (kStatus === "COMPLETE") {
           const output = await getKaggleKernelOutput({ userName, kernelSlug });
-          const imgFile = output.files?.find(
-            (f) =>
-              f.fileName.endsWith(".png") ||
-              f.fileName.endsWith(".jpg") ||
-              f.fileName.endsWith(".jpeg")
+          const isVideo = job.kind === "video";
+          const mediaFile = output.files?.find((f) =>
+            isVideo
+              ? f.fileName.endsWith(".mp4") || f.fileName.endsWith(".webm")
+              : f.fileName.endsWith(".png") || f.fileName.endsWith(".jpg") || f.fileName.endsWith(".jpeg")
           );
 
-          if (imgFile && imgFile.url) {
+          if (mediaFile && mediaFile.url) {
             // Descargar de Kaggle y subir permanentemente a Supabase Storage
-            const imgRes = await fetch(imgFile.url);
-            if (!imgRes.ok) {
-              throw new Error(`Error descargando resultado de Kaggle: ${imgRes.status}`);
+            const mediaRes = await fetch(mediaFile.url);
+            if (!mediaRes.ok) {
+              throw new Error(`Error descargando resultado de Kaggle: ${mediaRes.status}`);
             }
 
-            const buf = Buffer.from(await imgRes.arrayBuffer());
-            const filename = `kaggle_${job.id}_${Date.now()}.png`;
+            const buf = Buffer.from(await mediaRes.arrayBuffer());
+            const bucketName = isVideo ? "videos" : "keyframes";
+            const ext = isVideo ? "mp4" : "png";
+            const filename = `kaggle_${isVideo ? "video_" : ""}${job.id}_${Date.now()}.${ext}`;
 
             const { error: upErr } = await supabase.storage
-              .from("keyframes")
+              .from(bucketName)
               .upload(filename, buf, {
-                contentType: "image/png",
+                contentType: isVideo ? "video/mp4" : "image/png",
                 upsert: true,
               });
 
@@ -174,10 +176,10 @@ export default async function handler(req: any, res: any) {
             }
 
             const { data: pubData } = supabase.storage
-              .from("keyframes")
+              .from(bucketName)
               .getPublicUrl(filename);
 
-            const finalUrl = pubData?.publicUrl || imgFile.url;
+            const finalUrl = pubData?.publicUrl || mediaFile.url;
 
             // Actualizar estado del job en base de datos
             await supabase
@@ -194,7 +196,8 @@ export default async function handler(req: any, res: any) {
               jobId: job.id,
               status: "done",
               done: true,
-              imageUrl: finalUrl,
+              imageUrl: !isVideo ? finalUrl : undefined,
+              videoUrl: isVideo ? finalUrl : undefined,
             });
           }
         }

@@ -330,33 +330,47 @@ function getSupabaseAdmin() {
   });
 }
 
-async function processReferenceImage(ref?: string): Promise<string | null> {
+async function processReferenceImage(ref?: string | null, supabase?: any): Promise<string | null> {
   if (!ref || typeof ref !== "string") return null;
 
   // 1. Si es una URL HTTP/HTTPS, pasarla directa (Kaggle la descarga en segundos)
   if (ref.startsWith("http://") || ref.startsWith("https://")) {
-    return ref;
+    return ref.trim();
   }
 
-  // 2. Si es data URI, comprimir a thumbnail de 512px con sharp para que no supere el límite de 1MB de Kaggle
-  if (ref.startsWith("data:")) {
-    try {
+  // 2. Extraer datos base64 si es data URI o string base64 directo
+  try {
+    let b64Data = ref;
+    if (ref.startsWith("data:")) {
       const commaIdx = ref.indexOf(",");
-      const b64Data = commaIdx >= 0 ? ref.slice(commaIdx + 1) : ref;
-      const inputBuf = Buffer.from(b64Data, "base64");
-      const compressedBuf = await sharp(inputBuf)
-        .resize({ width: 512, height: 512, fit: "inside", withoutEnlargement: true })
-        .jpeg({ quality: 65 })
-        .toBuffer();
-      return compressedBuf.toString("base64");
-    } catch (e) {
-      console.warn("[processReferenceImage compress warning]:", e);
-      const parts = ref.split(",");
-      return parts[1] || null;
+      b64Data = commaIdx >= 0 ? ref.slice(commaIdx + 1) : ref;
     }
-  }
+    const inputBuf = Buffer.from(b64Data, "base64");
+    const compressedBuf = await sharp(inputBuf)
+      .resize({ width: 512, height: 512, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 65 })
+      .toBuffer();
 
-  return ref;
+    // Subir a Supabase Storage para evitar inflar el script de Kaggle (>1MB límite)
+    if (supabase) {
+      const refPath = `refs/ref_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+      const { error: upErr } = await supabase.storage.from("keyframes").upload(refPath, compressedBuf, {
+        contentType: "image/jpeg",
+        upsert: true,
+      });
+      if (!upErr) {
+        const { data: pubData } = supabase.storage.from("keyframes").getPublicUrl(refPath);
+        if (pubData?.publicUrl) {
+          return pubData.publicUrl;
+        }
+      }
+    }
+
+    return compressedBuf.toString("base64");
+  } catch (e) {
+    console.warn("[processReferenceImage compress warning]:", e);
+    return null;
+  }
 }
 
 export default async function handler(req: any, res: any) {
@@ -379,9 +393,9 @@ export default async function handler(req: any, res: any) {
     }
 
     const [charRef, locRef, propRef] = await Promise.all([
-      processReferenceImage(references?.character),
-      processReferenceImage(references?.location),
-      processReferenceImage(references?.prop),
+      processReferenceImage(references?.character, supabase),
+      processReferenceImage(references?.location, supabase),
+      processReferenceImage(references?.prop, supabase),
     ]);
 
     const payload = {
