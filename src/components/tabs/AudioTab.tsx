@@ -54,11 +54,38 @@ export function AudioTab({
     }
   }
 
-  // Generar / Sintetizar atmósfera musical según el prompt
+  // Generar / Sintetizar atmósfera musical según el prompt con Gemini AI
   async function generateAiMusic() {
     setGeneratingMusic(true);
     setError(null);
     try {
+      const res = await fetch("/api/ai/music", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: project.audio.music,
+          narration: project.audio.narration,
+          shots: project.shots,
+          availableTracks: MUSIC_PRESETS,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("No se pudo conectar con el Director de Música IA");
+      }
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Fallo en IA");
+
+      const matched = MUSIC_PRESETS.find((p) => p.id === data.selectedTrackId) || MUSIC_PRESETS[0];
+
+      setAudio({
+        music: data.musicPrompt || `${matched.name} (${matched.genre}) - ${matched.description}`,
+        bpm: data.bpm || matched.bpm,
+        musicUrl: matched.previewUrl,
+      });
+    } catch (err: any) {
+      // Fallback inteligente en caso de desconexión o red local
       const promptLower = (project.audio.music || "").toLowerCase();
       let matched = MUSIC_PRESETS[0];
       if (promptLower.includes("suspense") || promptLower.includes("tensión") || promptLower.includes("pulse")) {
@@ -78,8 +105,6 @@ export function AudioTab({
         bpm: matched.bpm,
         musicUrl: matched.previewUrl,
       });
-    } catch (err: any) {
-      setError(err?.message || "Error al componer música");
     } finally {
       setGeneratingMusic(false);
     }
