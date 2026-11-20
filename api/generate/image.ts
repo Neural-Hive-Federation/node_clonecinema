@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { createClient } from "@supabase/supabase-js";
+import sharp from "sharp";
 
 export const config = {
   maxDuration: 60,
@@ -153,17 +154,23 @@ prop_b64 = PAYLOAD.get("prop_image_b64")
 init_b64 = PAYLOAD.get("init_image_b64")
 
 
-def decode_image(b64_str: str | None) -> Image.Image | None:
-    if not b64_str:
+def decode_image(b64_or_url: str | None) -> Image.Image | None:
+    if not b64_or_url:
         return None
     try:
-        raw = base64.b64decode(b64_str)
-        img = Image.open(io.BytesIO(raw))
+        if b64_or_url.startswith("http://") or b64_or_url.startswith("https://"):
+            import urllib.request
+            req = urllib.request.Request(b64_or_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                img = Image.open(io.BytesIO(resp.read()))
+        else:
+            raw = base64.b64decode(b64_or_url)
+            img = Image.open(io.BytesIO(raw))
         if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
             return img.convert("RGBA")
         return img.convert("RGB")
     except Exception as e:
-        print(f"[clonecinema] Advertencia: no se pudo decodificar imagen base64 ({e})")
+        print(f"[clonecinema] Advertencia: no se pudo cargar imagen ({e})")
         return None
 
 
@@ -323,21 +330,33 @@ function getSupabaseAdmin() {
   });
 }
 
-async function urlToBase64(url?: string): Promise<string | null> {
-  if (!url) return null;
-  if (url.startsWith("data:")) {
-    const parts = url.split(",");
-    return parts[1] || null;
+async function processReferenceImage(ref?: string): Promise<string | null> {
+  if (!ref || typeof ref !== "string") return null;
+
+  // 1. Si es una URL HTTP/HTTPS, pasarla directa (Kaggle la descarga en segundos)
+  if (ref.startsWith("http://") || ref.startsWith("https://")) {
+    return ref;
   }
-  try {
-    const r = await fetch(url);
-    if (!r.ok) return null;
-    const buf = Buffer.from(await r.arrayBuffer());
-    return buf.toString("base64");
-  } catch (e) {
-    console.warn("[urlToBase64 Warning]:", e);
-    return null;
+
+  // 2. Si es data URI, comprimir a thumbnail de 512px con sharp para que no supere el límite de 1MB de Kaggle
+  if (ref.startsWith("data:")) {
+    try {
+      const commaIdx = ref.indexOf(",");
+      const b64Data = commaIdx >= 0 ? ref.slice(commaIdx + 1) : ref;
+      const inputBuf = Buffer.from(b64Data, "base64");
+      const compressedBuf = await sharp(inputBuf)
+        .resize({ width: 512, height: 512, fit: "inside", withoutEnlargement: true })
+        .jpeg({ quality: 65 })
+        .toBuffer();
+      return compressedBuf.toString("base64");
+    } catch (e) {
+      console.warn("[processReferenceImage compress warning]:", e);
+      const parts = ref.split(",");
+      return parts[1] || null;
+    }
   }
+
+  return ref;
 }
 
 export default async function handler(req: any, res: any) {
@@ -359,19 +378,19 @@ export default async function handler(req: any, res: any) {
       enrichedPrompt = `${enrichedPrompt}, photorealistic 35mm film still, cinematic lighting, 8k uhd, masterpiece`;
     }
 
-    const [charB64, locB64, propB64] = await Promise.all([
-      urlToBase64(references?.character),
-      urlToBase64(references?.location),
-      urlToBase64(references?.prop),
+    const [charRef, locRef, propRef] = await Promise.all([
+      processReferenceImage(references?.character),
+      processReferenceImage(references?.location),
+      processReferenceImage(references?.prop),
     ]);
 
     const payload = {
       job_id: jobId,
       prompt: enrichedPrompt,
       aspect_ratio: aspectRatio || "16:9",
-      character_image_b64: charB64,
-      location_image_b64: locB64,
-      prop_image_b64: propB64,
+      character_image_b64: charRef,
+      location_image_b64: locRef,
+      prop_image_b64: propRef,
       strength: typeof strength === "number" ? strength : 0.65,
       seed: Math.floor(Math.random() * 100000),
     };
