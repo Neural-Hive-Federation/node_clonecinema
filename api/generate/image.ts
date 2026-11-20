@@ -51,7 +51,15 @@ async function generateSingleImage(
       const seed = Math.floor(Math.random() * 100000) + seedIndex * 1337;
       const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true&seed=${seed}`;
 
-      const pollRes = await fetch(pollUrl);
+      let pollRes = await fetch(pollUrl);
+
+      // Si hay límite temporal (402 o 429), esperar 5.5s y reintentar automáticamente
+      if (pollRes.status === 402 || pollRes.status === 429) {
+        console.warn(`[Pollinations Rate Limit (${pollRes.status}) - Esperando 5.5s para reintentar...]`);
+        await new Promise((resolve) => setTimeout(resolve, 5500));
+        pollRes = await fetch(pollUrl);
+      }
+
       if (pollRes.ok) {
         const arrayBuffer = await pollRes.arrayBuffer();
         buffer = Buffer.from(arrayBuffer);
