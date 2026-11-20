@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { defaultScoutData } from "../lib/scoutData";
+import { defaultScoutData } from "../_lib/scoutData";
 
 export default function handler(req: any, res: any) {
   res.setHeader("Access-Control-Allow-Origin", "*");
