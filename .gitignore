@@ -22,3 +22,5 @@ kaggle.json
 .vercel
 
 .vercel
+
+.env*.local

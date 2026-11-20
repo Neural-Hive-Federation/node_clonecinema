@@ -1,110 +1,45 @@
+import { randomUUID } from "crypto";
 import { createClient } from "@supabase/supabase-js";
+import { FLUX_IMAGE_TEMPLATE } from "../lib/templates/fluxImage";
+import { pushKaggleScript } from "../lib/kaggleClient";
 
 export const config = {
   maxDuration: 60,
 };
 
-async function generateSingleImage(
-  prompt: string,
-  aspect: string,
-  supabase: any,
-  seedIndex: number = 0
-): Promise<string> {
-  let buffer: Buffer | null = null;
+function getSupabaseAdmin() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.VITE_SUPABASE_ANON_KEY ||
+    "";
 
-  // 1. INTENTO PRINCIPAL: Cloudflare Worker de Wily
-  const workerUrl = "https://beatriz-image-gen.wilycol1492.workers.dev/";
+  if (!url || !key) {
+    throw new Error("Supabase credentials no configuradas en el entorno.");
+  }
+
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+async function urlToBase64(url?: string): Promise<string | null> {
+  if (!url) return null;
+  if (url.startsWith("data:")) {
+    const parts = url.split(",");
+    return parts[1] || null;
+  }
   try {
-    const cfRes = await fetch(workerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt,
-        aspect,
-      }),
-    });
-
-    if (cfRes.ok && cfRes.headers.get("content-type")?.includes("image")) {
-      const arrayBuffer = await cfRes.arrayBuffer();
-      buffer = Buffer.from(arrayBuffer);
-    } else {
-      const errText = await cfRes.text();
-      console.warn(`[Cloudflare Worker Warning: ${cfRes.status}]`, errText.slice(0, 150));
-    }
-  } catch (cfErr: any) {
-    console.warn("[Cloudflare Worker Connection Warning]:", cfErr?.message || cfErr);
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const buf = Buffer.from(await r.arrayBuffer());
+    return buf.toString("base64");
+  } catch (e) {
+    console.warn("[urlToBase64 Warning]:", e);
+    return null;
   }
-
-  // 2. FALLBACK RESILIENTE: Pollinations AI (FLUX / SANA)
-  if (!buffer) {
-    try {
-      let width = 1024;
-      let height = 576;
-      if (aspect === "vertical") {
-        width = 576;
-        height = 1024;
-      } else if (aspect === "square") {
-        width = 768;
-        height = 768;
-      }
-
-      const seed = Math.floor(Math.random() * 100000) + seedIndex * 1337;
-      const pollUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true&seed=${seed}`;
-
-      let pollRes = await fetch(pollUrl);
-
-      // Si hay límite temporal (402 o 429), esperar 5.5s y reintentar automáticamente
-      if (pollRes.status === 402 || pollRes.status === 429) {
-        console.warn(`[Pollinations Rate Limit (${pollRes.status}) - Esperando 5.5s para reintentar...]`);
-        await new Promise((resolve) => setTimeout(resolve, 5500));
-        pollRes = await fetch(pollUrl);
-      }
-
-      if (pollRes.ok) {
-        const arrayBuffer = await pollRes.arrayBuffer();
-        buffer = Buffer.from(arrayBuffer);
-      } else {
-        const errText = await pollRes.text();
-        console.warn(`[Pollinations Fallback Warning: ${pollRes.status}]`, errText.slice(0, 150));
-      }
-    } catch (pollErr: any) {
-      console.warn("[Pollinations Fallback Error]:", pollErr?.message || pollErr);
-    }
-  }
-
-  if (!buffer) {
-    throw new Error(
-      "El motor de generación no respondió a tiempo. Puedes reintentar o usar el botón 'Subir foto' para cargar tu propia imagen directamente."
-    );
-  }
-
-  // 3. Almacenar permanentemente en Supabase Storage (Bucket 'keyframes')
-  if (supabase) {
-    try {
-      const filename = `keyframe_${Date.now()}_${Math.random().toString(36).slice(2, 7)}.png`;
-      const { error: uploadError } = await supabase.storage
-        .from("keyframes")
-        .upload(filename, buffer, {
-          contentType: "image/png",
-          upsert: true,
-        });
-
-      if (!uploadError) {
-        const { data: publicUrlData } = supabase.storage
-          .from("keyframes")
-          .getPublicUrl(filename);
-
-        if (publicUrlData?.publicUrl) {
-          return publicUrlData.publicUrl;
-        }
-      }
-    } catch (storageErr) {
-      console.warn("[Storage Upload Fallback to Base64]", storageErr);
-    }
-  }
-
-  // Fallback garantizado a Data URL Base64
-  return `data:image/png;base64,${buffer.toString("base64")}`;
 }
 
 export default async function handler(req: any, res: any) {
@@ -112,71 +47,78 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { prompt, aspectRatio, references, count: requestedCount } = req.body || {};
+  const { prompt, aspectRatio, references, strength } = req.body || {};
   if (!prompt || typeof prompt !== "string") {
     return res.status(400).json({ error: "Falta el prompt de la imagen." });
   }
 
-  const count = Math.min(Math.max(Number(requestedCount) || 1, 1), 4);
+  const supabase = getSupabaseAdmin();
+  const jobId = randomUUID();
 
-  // Mapear relación de aspecto
-  let cfAspect = "vertical";
-  if (aspectRatio === "16:9") cfAspect = "horizontal";
-  if (aspectRatio === "1:1") cfAspect = "square";
-
-  // Enriquecer prompt con estética cinematográfica fotorrealista
+  // Enriquecer prompt para render cinematográfico de máxima fidelidad
   let enrichedPrompt = prompt.trim();
   if (!enrichedPrompt.toLowerCase().includes("photorealistic")) {
-    enrichedPrompt = `${enrichedPrompt}, raw photographic style, photorealistic 35mm film still, cinematic lighting, natural skin texture, 8k uhd, hyperrealistic`;
-  }
-  if (references?.character) {
-    enrichedPrompt = `Consistent protagonist actor portrait, ${enrichedPrompt}`;
-  }
-
-  // Cliente de Supabase
-  let supabase = null;
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SECRET_KEY ||
-    process.env.SUPABASE_ANON_KEY;
-
-  if (supabaseUrl && supabaseKey) {
-    try {
-      supabase = createClient(supabaseUrl, supabaseKey);
-    } catch (initErr) {
-      console.warn("[Supabase Client Init Warning]", initErr);
-    }
+    enrichedPrompt = `${enrichedPrompt}, photorealistic 35mm film still, cinematic lighting, 8k uhd, masterpiece`;
   }
 
   try {
-    const imageUrls: string[] = [];
+    // 1. Preparar referencias en Base64 si existen (Actor, Set, Prop)
+    const [charB64, locB64, propB64] = await Promise.all([
+      urlToBase64(references?.character),
+      urlToBase64(references?.location),
+      urlToBase64(references?.prop),
+    ]);
 
-    for (let i = 0; i < count; i++) {
-      try {
-        const url = await generateSingleImage(enrichedPrompt, cfAspect, supabase, i);
-        imageUrls.push(url);
-      } catch (singleErr: any) {
-        if (imageUrls.length > 0) {
-          // Si ya tenemos al menos una variación, la duplicamos para no fallar el casting
-          imageUrls.push(imageUrls[0]);
-        } else {
-          throw singleErr;
-        }
-      }
+    const payload = {
+      job_id: jobId,
+      prompt: enrichedPrompt,
+      aspect_ratio: aspectRatio || "16:9",
+      character_image_b64: charB64,
+      location_image_b64: locB64,
+      prop_image_b64: propB64,
+      strength: typeof strength === "number" ? strength : 0.65,
+      seed: Math.floor(Math.random() * 100000),
+    };
+
+    const payloadB64 = Buffer.from(JSON.stringify(payload), "utf-8").toString("base64");
+    const scriptWithPayload = FLUX_IMAGE_TEMPLATE.replace("__PAYLOAD_B64__", payloadB64);
+
+    // 2. Publicar y lanzar el cuaderno en Kaggle GPU T4 x2
+    console.log(`[Kaggle Submit] Enviando tarea ${jobId} a wilycol/clonecinema-flux-image...`);
+    const { versionNumber } = await pushKaggleScript({
+      slug: "wilycol/clonecinema-flux-image",
+      title: "CloneCinema Flux image",
+      text: scriptWithPayload,
+      enableGpu: true,
+    });
+    console.log(`[Kaggle Submit] Versión ${versionNumber} en ejecución en GPU.`);
+
+    // 3. Registrar el trabajo en Supabase ai_jobs para seguimiento asíncrono
+    const { error: insertErr } = await supabase.from("ai_jobs").insert({
+      id: jobId,
+      kind: "image",
+      status: "running",
+      provider: "kaggle",
+      kernel_ref: "wilycol/clonecinema-flux-image",
+      prompt: enrichedPrompt,
+    });
+
+    if (insertErr) {
+      console.warn("[ai_jobs insert warning]:", insertErr.message);
     }
 
+    // 4. Devolver respuesta inmediata con jobId para que el frontend sondee
     return res.status(200).json({
       success: true,
-      imageUrl: imageUrls[0],
-      imageUrls,
-      provider: "hybrid_resilient",
+      jobId,
+      provider: "kaggle",
+      kernelVersion: versionNumber,
     });
   } catch (err: any) {
-    console.error("[generate/image Error]", err);
+    console.error("[generate/image Kaggle Error]:", err);
     return res.status(502).json({
       success: false,
-      error: err?.message || "Error generando imagen",
+      error: err?.message || "Error al enviar la tarea al cuaderno de Kaggle.",
     });
   }
 }

@@ -179,6 +179,10 @@ export async function generateImageVariations(
     return data.imageUrls;
   }
   if (data.imageUrl) return [data.imageUrl];
+  if (data.jobId) {
+    const single = await waitForJob(data.jobId, "image");
+    return [single];
+  }
   throw new Error(data.error || "Sin imágenes generadas");
 }
 
