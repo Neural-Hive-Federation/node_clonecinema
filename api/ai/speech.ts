@@ -1,4 +1,5 @@
 import { GoogleGenAI, Modality } from "@google/genai";
+import { createClient } from "@supabase/supabase-js";
 
 function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bits = 16): Buffer {
   const header = Buffer.alloc(44);
@@ -43,7 +44,6 @@ export default async function handler(req: any, res: any) {
 
     const cleanText = text.trim();
     const voiceName = voice || "Fenrir";
-    const speechTone = tone || "cinematic, intimate and confident";
 
     const response = await ai.models.generateContent({
       model: "gemini-3.1-flash-tts-preview",
@@ -60,8 +60,39 @@ export default async function handler(req: any, res: any) {
     }
 
     const wav = pcmToWav(Buffer.from(base64Audio, "base64"));
+
+    // Subir a Supabase Storage (Bucket: audio)
+    let audioUrl: string | null = null;
+    const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_SECRET_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.VITE_SUPABASE_ANON_KEY;
+
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const fileName = `voices/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.wav`;
+        const { error: uploadError } = await supabase.storage.from("audio").upload(fileName, wav, {
+          contentType: "audio/wav",
+          upsert: true,
+        });
+
+        if (!uploadError) {
+          const { data: publicData } = supabase.storage.from("audio").getPublicUrl(fileName);
+          audioUrl = publicData.publicUrl;
+        } else {
+          console.warn("[speech] Error subiendo a bucket audio:", uploadError.message);
+        }
+      } catch (err: any) {
+        console.warn("[speech] Excepción subiendo audio a Supabase:", err?.message || err);
+      }
+    }
+
     return res.status(200).json({
       success: true,
+      audioUrl: audioUrl || null,
       audioBase64: wav.toString("base64"),
       mimeType: "audio/wav",
     });

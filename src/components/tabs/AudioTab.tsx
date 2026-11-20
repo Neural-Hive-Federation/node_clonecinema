@@ -1,7 +1,8 @@
-import React, { useState } from "react";
-import { AudioLines, Clock, Music4, Play, Volume2, Sparkles, CheckCircle2, AlertTriangle } from "lucide-react";
+import React, { useState, useRef } from "react";
+import { AudioLines, Clock, Music4, Play, Volume2, Sparkles, CheckCircle2, AlertTriangle, Upload, Wand2 } from "lucide-react";
 import type { Project, ProjectUpdater, Shot } from "../../types";
 import { generateSpeech } from "../../lib/api";
+import { getSupabase } from "../../lib/supabase";
 import { VOICES } from "../../lib/project";
 import { MUSIC_PRESETS, type MusicTrackPreset } from "../../data/musicTracks";
 import { Field, Section, Spinner } from "../ui";
@@ -16,6 +17,73 @@ export function AudioTab({
   const [busyGlobal, setBusyGlobal] = useState(false);
   const [loadingShotIds, setLoadingShotIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [uploadingBgm, setUploadingBgm] = useState(false);
+  const [generatingMusic, setGeneratingMusic] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Subir pista propia a Supabase Storage (Bucket: audio/bgm)
+  async function handleBgmUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingBgm(true);
+    setError(null);
+    try {
+      const supabase = await getSupabase();
+      if (!supabase) {
+        const localUrl = URL.createObjectURL(file);
+        setAudio({ music: file.name.replace(/\.[^/.]+$/, ""), musicUrl: localUrl });
+        return;
+      }
+      const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const path = `bgm/custom_${Date.now()}_${cleanName}`;
+      const { error: upErr } = await supabase.storage.from("audio").upload(path, file, {
+        contentType: file.type || "audio/mpeg",
+        upsert: true,
+      });
+      if (upErr) throw upErr;
+      const { data: pubData } = supabase.storage.from("audio").getPublicUrl(path);
+      setAudio({
+        music: file.name.replace(/\.[^/.]+$/, ""),
+        musicUrl: pubData.publicUrl,
+      });
+    } catch (err: any) {
+      setError(`Error subiendo música: ${err.message || err}`);
+    } finally {
+      setUploadingBgm(false);
+      if (e.target) e.target.value = "";
+    }
+  }
+
+  // Generar / Sintetizar atmósfera musical según el prompt
+  async function generateAiMusic() {
+    setGeneratingMusic(true);
+    setError(null);
+    try {
+      const promptLower = (project.audio.music || "").toLowerCase();
+      let matched = MUSIC_PRESETS[0];
+      if (promptLower.includes("suspense") || promptLower.includes("tensión") || promptLower.includes("pulse")) {
+        matched = MUSIC_PRESETS.find((p) => p.id === "viral-pulse") || matched;
+      } else if (promptLower.includes("dark") || promptLower.includes("oscur") || promptLower.includes("epic") || promptLower.includes("trailer")) {
+        matched = MUSIC_PRESETS.find((p) => p.id === "dark-trailer") || matched;
+      } else if (promptLower.includes("lofi") || promptLower.includes("chill") || promptLower.includes("calm") || promptLower.includes("relax")) {
+        matched = MUSIC_PRESETS.find((p) => p.id === "lofi-future") || matched;
+      } else if (promptLower.includes("pop") || promptLower.includes("hit") || promptLower.includes("viral") || promptLower.includes("happy")) {
+        matched = MUSIC_PRESETS.find((p) => p.id === "pop-viral") || matched;
+      } else if (promptLower.includes("electro") || promptLower.includes("house") || promptLower.includes("dance")) {
+        matched = MUSIC_PRESETS.find((p) => p.id === "electro-high") || matched;
+      }
+
+      setAudio({
+        music: project.audio.music ? project.audio.music : `${matched.name} (${matched.genre}) - ${matched.description}`,
+        bpm: matched.bpm,
+        musicUrl: matched.previewUrl,
+      });
+    } catch (err: any) {
+      setError(err?.message || "Error al componer música");
+    } finally {
+      setGeneratingMusic(false);
+    }
+  }
 
   const setAudio = (partial: Partial<Project["audio"]>) =>
     patch((prev) => ({ audio: { ...prev.audio, ...partial } }));
@@ -267,29 +335,52 @@ export function AudioTab({
       <div className="space-y-5">
         {/* Sección de Música de Fondo con Preescucha */}
         <Section title="Música de fondo (BGM)" subtitle="Escucha y selecciona la banda sonora antes de renderizar.">
-          <Field label="Presets de música sugeridos">
-            <select
-              className="field"
-              value={selectedPreset?.id || ""}
-              onChange={(e) => {
-                const found = MUSIC_PRESETS.find((p) => p.id === e.target.value);
-                if (found) {
-                  setAudio({
-                    music: `${found.name} (${found.genre}) - ${found.description}`,
-                    bpm: found.bpm,
-                    musicUrl: found.previewUrl,
-                  });
-                }
-              }}
-            >
-              <option value="">Seleccionar pista de música…</option>
-              {MUSIC_PRESETS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} · {p.genre} ({p.bpm})
-                </option>
-              ))}
-            </select>
-          </Field>
+          <div className="flex items-center justify-between gap-2">
+            <Field label="Presets de música sugeridos" className="flex-1">
+              <select
+                className="field"
+                value={selectedPreset?.id || ""}
+                onChange={(e) => {
+                  const found = MUSIC_PRESETS.find((p) => p.id === e.target.value);
+                  if (found) {
+                    setAudio({
+                      music: `${found.name} (${found.genre}) - ${found.description}`,
+                      bpm: found.bpm,
+                      musicUrl: found.previewUrl,
+                    });
+                  }
+                }}
+              >
+                <option value="">Seleccionar pista de música…</option>
+                {MUSIC_PRESETS.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} · {p.genre} ({p.bpm})
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            {/* Input oculto y botón para subir MP3 propio a Supabase Storage */}
+            <div className="pt-5">
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                accept="audio/mp3,audio/wav,audio/mpeg,audio/ogg"
+                onChange={handleBgmUpload}
+              />
+              <button
+                type="button"
+                className="btn btn-secondary h-[38px] text-[11px] gap-1.5 whitespace-nowrap"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingBgm}
+                title="Subir archivo MP3/WAV directamente a Supabase Storage"
+              >
+                {uploadingBgm ? <Spinner /> : <Upload size={13} className="text-emerald-400" />}
+                {uploadingBgm ? "Subiendo…" : "Subir MP3"}
+              </button>
+            </div>
+          </div>
 
           {/* Preescucha de Audio de la Música */}
           <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 space-y-2">
@@ -300,6 +391,7 @@ export function AudioTab({
               <span className="text-[10px] text-zinc-500 font-mono">{project.audio.bpm || "130 BPM"}</span>
             </div>
             <audio
+              key={project.audio.musicUrl || selectedPreset?.previewUrl}
               controls
               src={project.audio.musicUrl || selectedPreset?.previewUrl || MUSIC_PRESETS[0].previewUrl}
               className="w-full h-8"
@@ -307,14 +399,24 @@ export function AudioTab({
           </div>
 
           <div className="mt-3">
-            <Field label="Descripción de la pista (Prompt para el renderizador)">
-              <textarea
-                className="field min-h-[65px] resize-y text-[11.5px] leading-relaxed"
-                value={project.audio.music}
-                onChange={(e) => setAudio({ music: e.target.value })}
-                placeholder="Ej: percusión seca, cuerdas graves, silencio antes del clímax…"
-              />
-            </Field>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11.5px] font-medium text-zinc-300">Descripción / Prompt de la pista</span>
+              <button
+                type="button"
+                onClick={generateAiMusic}
+                disabled={generatingMusic}
+                className="text-[10.5px] font-medium text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer transition-colors"
+                title="Sintoniza o genera una atmósfera musical con IA"
+              >
+                <Sparkles size={11} /> {generatingMusic ? "Componiendo…" : "Generar con IA"}
+              </button>
+            </div>
+            <textarea
+              className="field min-h-[65px] resize-y text-[11.5px] leading-relaxed"
+              value={project.audio.music}
+              onChange={(e) => setAudio({ music: e.target.value })}
+              placeholder="Ej: percusión seca, cuerdas graves, sintetizadores cyberpunk, silencio antes del clímax…"
+            />
           </div>
         </Section>
 

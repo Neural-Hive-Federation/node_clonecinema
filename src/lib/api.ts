@@ -100,10 +100,13 @@ export function updateTrendingStatus(
 }
 
 export async function generateSpeech(text: string, voice: string): Promise<string> {
-  const data = await post<{ success: boolean; audioBase64?: string; mimeType?: string; error?: string }>(
+  const data = await post<{ success: boolean; audioUrl?: string | null; audioBase64?: string; mimeType?: string; error?: string }>(
     "/api/ai/speech",
     { text, voice, tone: "cinematic, intimate and confident" }
   );
+  if (data.audioUrl) {
+    return data.audioUrl;
+  }
   if (!data.audioBase64) throw new Error(data.error || "Sin audio");
   return `data:${data.mimeType || "audio/wav"};base64,${data.audioBase64}`;
 }
