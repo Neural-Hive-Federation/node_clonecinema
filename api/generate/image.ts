@@ -43,25 +43,25 @@ async function urlToBase64(url?: string): Promise<string | null> {
 }
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const { prompt, aspectRatio, references, strength } = req.body || {};
-  if (!prompt || typeof prompt !== "string") {
-    return res.status(400).json({ error: "Falta el prompt de la imagen." });
-  }
-
-  const supabase = getSupabaseAdmin();
-  const jobId = randomUUID();
-
-  // Enriquecer prompt para render cinematográfico de máxima fidelidad
-  let enrichedPrompt = prompt.trim();
-  if (!enrichedPrompt.toLowerCase().includes("photorealistic")) {
-    enrichedPrompt = `${enrichedPrompt}, photorealistic 35mm film still, cinematic lighting, 8k uhd, masterpiece`;
-  }
-
   try {
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    const { prompt, aspectRatio, references, strength } = req.body || {};
+    if (!prompt || typeof prompt !== "string") {
+      return res.status(400).json({ error: "Falta el prompt de la imagen." });
+    }
+
+    const supabase = getSupabaseAdmin();
+    const jobId = randomUUID();
+
+    // Enriquecer prompt para render cinematográfico de máxima fidelidad
+    let enrichedPrompt = prompt.trim();
+    if (!enrichedPrompt.toLowerCase().includes("photorealistic")) {
+      enrichedPrompt = `${enrichedPrompt}, photorealistic 35mm film still, cinematic lighting, 8k uhd, masterpiece`;
+    }
+
     // 1. Preparar referencias en Base64 si existen (Actor, Set, Prop)
     const [charB64, locB64, propB64] = await Promise.all([
       urlToBase64(references?.character),

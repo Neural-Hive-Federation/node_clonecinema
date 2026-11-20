@@ -24,17 +24,18 @@ function getSupabaseAdmin() {
 }
 
 export default async function handler(req: any, res: any) {
-  const { id } = req.query;
-  if (!id || typeof id !== "string") {
-    return res.status(400).json({ error: "Falta el id del trabajo." });
-  }
+  try {
+    const { id } = req.query;
+    if (!id || typeof id !== "string") {
+      return res.status(400).json({ error: "Falta el id del trabajo." });
+    }
 
-  const supabase = getSupabaseAdmin();
-  const { data: job, error: jobErr } = await supabase
-    .from("ai_jobs")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
+    const supabase = getSupabaseAdmin();
+    const { data: job, error: jobErr } = await supabase
+      .from("ai_jobs")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
 
   if (jobErr) {
     console.error("[jobs/[id] Query Error]:", jobErr);
@@ -191,4 +192,12 @@ export default async function handler(req: any, res: any) {
     status: job.status || "running",
     done: false,
   });
+  } catch (globalErr: any) {
+    console.error("[jobs/[id] Fatal Handler Error]:", globalErr);
+    return res.status(500).json({
+      success: false,
+      error: globalErr?.message || "Error consultando el estado del trabajo.",
+      details: String(globalErr),
+    });
+  }
 }
