@@ -156,6 +156,8 @@ export const RADAR_SOCIAL_PRESET: Project = {
         "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_623fea87-522d-4a11-8f8a-acbcbf11c0d4_1795151039389.png",
       audioUrl:
         "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/audio/voices/1795238677841_1hgo2k.wav",
+      videoUrl:
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/kaggle_video_46f1795b-f6a5-49fb-8870-5a681dd08f75_1795261573824.mp4",
       characterId: "char-avatar",
       locationId: "loc-plato",
       propId: "prop-mapa",
@@ -177,6 +179,8 @@ export const RADAR_SOCIAL_PRESET: Project = {
         "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_15b2a273-6f47-4bdf-8f08-c3e2ddad9b90_1795151830305.png",
       audioUrl:
         "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/audio/voices/1795238683080_w5x3hr.wav",
+      videoUrl:
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/kaggle_video_82974f52-4672-410e-a730-5f1a2c973f99_1795281719392.mp4",
       characterId: "char-avatar",
       locationId: "loc-plato",
     },
@@ -197,6 +201,8 @@ export const RADAR_SOCIAL_PRESET: Project = {
         "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_52999aa1-7bc0-4e2b-aef8-d9c111f7424e_1795152132125.png",
       audioUrl:
         "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/audio/voices/1795238687463_wrclvn.wav",
+      videoUrl:
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/kaggle_video_1c6c3042-a5c4-4a3c-a3f6-23a2a2ed74fb_1795283243656.mp4",
       characterId: "char-avatar",
       locationId: "loc-plato",
     },

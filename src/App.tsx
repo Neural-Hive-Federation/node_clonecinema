@@ -23,7 +23,8 @@ export default function App() {
               const hasBrokenUrls = JSON.stringify(p).includes("lkctxyoyajqrhaavnzrv");
               const hasOldDummyVideo = JSON.stringify(p).includes("7999bc0d-0b12-475e-8ef5-7aaf35022739");
               const missingAudio = !p.shots.some((s) => Boolean(s.audioUrl));
-              if (hasBrokenUrls || hasOldDummyVideo || missingAudio) {
+              const missingVideos = p.shots.some((s) => !s.videoUrl);
+              if (hasBrokenUrls || hasOldDummyVideo || missingAudio || missingVideos) {
                 return RADAR_SOCIAL_PRESET;
               }
             }
@@ -65,6 +66,31 @@ export default function App() {
       .then((r) => r.json())
       .then((d) => setHasApiKey(!!d.hasApiKey))
       .catch(() => setHasApiKey(false));
+
+    // Sincronizar proyectos desde la nube (Supabase) al arrancar
+    fetch("/api/projects/sync")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && Array.isArray(data.projects) && data.projects.length) {
+          setProjects((prev) => {
+            const map = new Map(prev.map((p) => [p.id, p]));
+            for (const remote of data.projects) {
+              const local = map.get(remote.id);
+              if (!local) {
+                map.set(remote.id, remote);
+              } else {
+                const localVideos = local.shots?.filter((s: any) => !!s.videoUrl).length || 0;
+                const remoteVideos = remote.shots?.filter((s: any) => !!s.videoUrl).length || 0;
+                if (remoteVideos >= localVideos) {
+                  map.set(remote.id, { ...local, ...remote });
+                }
+              }
+            }
+            return Array.from(map.values());
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -74,7 +100,18 @@ export default function App() {
     } catch {
       setStorageFull(true);
     }
-  }, [projects, activeId]);
+
+    if (active) {
+      const timer = setTimeout(() => {
+        fetch("/api/projects/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ project: active }),
+        }).catch(() => {});
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [projects, activeId, active]);
 
   function updateProject(next: Project) {
     setProjects((prev) => prev.map((p) => (p.id === next.id ? next : p)));
