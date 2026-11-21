@@ -21,9 +21,9 @@ export default function App() {
           const healed = parsed.map((p: Project) => {
             if (p.id === "prj-radar-social") {
               const hasBrokenUrls = JSON.stringify(p).includes("lkctxyoyajqrhaavnzrv");
+              const hasOldDummyVideo = JSON.stringify(p).includes("7999bc0d-0b12-475e-8ef5-7aaf35022739");
               const missingAudio = !p.shots.some((s) => Boolean(s.audioUrl));
-              const missingVideo = !p.shots.some((s) => Boolean(s.videoUrl));
-              if (hasBrokenUrls || missingAudio || missingVideo) {
+              if (hasBrokenUrls || hasOldDummyVideo || missingAudio) {
                 return RADAR_SOCIAL_PRESET;
               }
             }

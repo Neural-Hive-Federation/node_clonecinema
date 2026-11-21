@@ -146,11 +146,10 @@ export default async function handler(req: any, res: any) {
         if (kStatus === "COMPLETE") {
           const output = await getKaggleKernelOutput({ userName, kernelSlug });
           const isVideo = job.kind === "video";
-          const mediaFile = output.files?.find((f) =>
-            isVideo
-              ? f.fileName.endsWith(".mp4") || f.fileName.endsWith(".webm")
-              : f.fileName.endsWith(".png") || f.fileName.endsWith(".jpg") || f.fileName.endsWith(".jpeg")
-          );
+          const mediaFile = isVideo
+            ? output.files?.find((f) => f.fileName === "output_video.mp4") ||
+              output.files?.find((f) => f.fileName.endsWith(".mp4") || f.fileName.endsWith(".webm"))
+            : output.files?.find((f) => f.fileName.endsWith(".png") || f.fileName.endsWith(".jpg") || f.fileName.endsWith(".jpeg"));
 
           if (mediaFile && mediaFile.url) {
             // Descargar de Kaggle y subir permanentemente a Supabase Storage
