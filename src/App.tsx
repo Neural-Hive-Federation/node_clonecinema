@@ -85,7 +85,17 @@ export default function App() {
                 const localVideos = local.shots?.filter((s: any) => !!s.videoUrl).length || 0;
                 const remoteVideos = remote.shots?.filter((s: any) => !!s.videoUrl).length || 0;
                 if (remoteVideos >= localVideos) {
-                  map.set(remote.id, { ...local, ...remote });
+                  map.set(remote.id, {
+                    ...local,
+                    ...remote,
+                    masterVideoUrl:
+                      remote.masterVideoUrl ||
+                      remote.publish?.masterVideoUrl ||
+                      local.masterVideoUrl ||
+                      (local.id === "prj-radar-social"
+                        ? "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/clonecinema_radar_social_master_final.mp4"
+                        : undefined),
+                  });
                 }
               }
             }
@@ -93,7 +103,7 @@ export default function App() {
           });
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -110,7 +120,7 @@ export default function App() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ project: active }),
-        }).catch(() => {});
+        }).catch(() => { });
       }, 2500);
       return () => clearTimeout(timer);
     }
@@ -125,10 +135,10 @@ export default function App() {
       prev.map((p) =>
         p.id === active?.id
           ? {
-              ...p,
-              ...(typeof update === "function" ? update(p) : update),
-              updatedAt: new Date().toISOString(),
-            }
+            ...p,
+            ...(typeof update === "function" ? update(p) : update),
+            updatedAt: new Date().toISOString(),
+          }
           : p
       )
     );
@@ -256,11 +266,10 @@ export default function App() {
         <nav className="flex md:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800/90 px-2 py-1.5 justify-around items-center text-xs shadow-2xl">
           <button
             onClick={() => setView("chat")}
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
-              view === "chat"
-                ? "text-signal font-bold"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${view === "chat"
+              ? "text-signal font-bold"
+              : "text-zinc-400 hover:text-zinc-200"
+              }`}
           >
             <MessageSquare size={18} />
             <span className="text-[10px]">Chat & Radar</span>
@@ -271,11 +280,10 @@ export default function App() {
               setView("studio");
               if (!tab || tab === "script") setTab("storyboard");
             }}
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition relative ${
-              view === "studio" && tab === "storyboard"
-                ? "text-signal font-bold"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition relative ${view === "studio" && tab === "storyboard"
+              ? "text-signal font-bold"
+              : "text-zinc-400 hover:text-zinc-200"
+              }`}
           >
             <Film size={18} />
             <span className="text-[10px]">Storyboard</span>
@@ -292,11 +300,10 @@ export default function App() {
               setView("studio");
               setTab("audio");
             }}
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
-              view === "studio" && tab === "audio"
-                ? "text-signal font-bold"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${view === "studio" && tab === "audio"
+              ? "text-signal font-bold"
+              : "text-zinc-400 hover:text-zinc-200"
+              }`}
           >
             <Mic size={18} />
             <span className="text-[10px]">Audio & Voz</span>
@@ -307,11 +314,10 @@ export default function App() {
               setView("studio");
               setTab("render");
             }}
-            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${
-              view === "studio" && tab === "render"
-                ? "text-signal font-bold"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
+            className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition ${view === "studio" && tab === "render"
+              ? "text-signal font-bold"
+              : "text-zinc-400 hover:text-zinc-200"
+              }`}
           >
             <Clapperboard size={18} />
             <span className="text-[10px]">Render</span>

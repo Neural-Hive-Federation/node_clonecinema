@@ -37,7 +37,10 @@ function toDbRow(p: any) {
     locations: p.locations || [],
     props: p.props || [],
     audio: p.audio || {},
-    publish: p.publish || null,
+    publish: {
+      ...(p.publish || {}),
+      masterVideoUrl: p.masterVideoUrl || p.publish?.masterVideoUrl || (p.id === "prj-radar-social" ? "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/clonecinema_radar_social_master_final.mp4" : undefined),
+    },
     chat: p.chat || [],
     updated_at: new Date().toISOString(),
   };
@@ -65,6 +68,7 @@ function fromDbRow(r: any) {
     props: r.props || [],
     audio: r.audio || {},
     publish: r.publish,
+    masterVideoUrl: r.publish?.masterVideoUrl || (r.id === "prj-radar-social" ? "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/clonecinema_radar_social_master_final.mp4" : null),
     chat: r.chat || [],
     createdAt: r.created_at,
     updatedAt: r.updated_at,
