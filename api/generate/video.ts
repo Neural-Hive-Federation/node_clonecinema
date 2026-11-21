@@ -248,7 +248,7 @@ def main() -> None:
     for idx, prompt in enumerate(chain_prompts):
         clip_num = idx + 1
         t_start = time.time()
-        print(f"\n--- [Clip {clip_num}/{len(chain_prompts)}] ---")
+        print(f"--- [Clip {clip_num}/{len(chain_prompts)}] ---")
         print(f"Prompt: {prompt[:200]}")
 
         # Inferencia I2V
