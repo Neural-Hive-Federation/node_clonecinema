@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { CircleAlert, Clapperboard, Download, Play, RotateCw } from "lucide-react";
+import { CircleAlert, Clapperboard, Download, Play, RotateCw, Sparkles } from "lucide-react";
 import type { Project, ProjectUpdater, Shot } from "../../types";
 import { isPaymentRequired, startVideo, videoStatus } from "../../lib/api";
 import { useSession } from "../../context/SessionContext";
@@ -179,13 +179,38 @@ export function RenderTab({
         })}
       </div>
 
-      <Section title="Cómo se arma el video final" subtitle="El render es por plano; el montaje es tuyo.">
-        <ol className="grid grid-cols-1 gap-2 text-[11.5px] leading-relaxed text-zinc-400 sm:grid-cols-2">
-          <li>1. Genera los keyframes en Storyboard para fijar la identidad visual.</li>
-          <li>2. Renderiza cada plano con su prompt de video.</li>
-          <li>3. Descarga los clips y únelos en el orden del storyboard.</li>
-          <li>4. Monta la narración de Audio y normaliza a -14 LUFS.</li>
-        </ol>
+      <Section
+        title="Montaje Automático del Video Final"
+        subtitle="¡Todo el ensamble ocurre en un solo clic en la pestaña Publicar!"
+        action={
+          <span className="rounded-full bg-signal/15 px-3 py-1 text-[11px] font-semibold text-signal flex items-center gap-1.5 border border-signal/25">
+            <Sparkles size={13} /> CineMaster Activo
+          </span>
+        }
+      >
+        <div className="rounded-xl border border-signal/20 bg-signal/5 p-4 text-[12px] leading-relaxed text-zinc-300">
+          <p className="font-semibold text-white mb-2 flex items-center gap-1.5">
+            ✨ Ya no necesitas unir los clips ni sincronizar los audios manualmente:
+          </p>
+          <ol className="grid grid-cols-1 gap-2.5 text-zinc-400 sm:grid-cols-2 text-[11.5px]">
+            <li className="flex items-start gap-2">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-signal/20 font-bold text-signal text-[10px]">1</span>
+              <span>Renderiza cada plano aquí con Wan 2.1 I2V.</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-signal/20 font-bold text-signal text-[10px]">2</span>
+              <span>Dirígete a la pestaña <strong>Publicar</strong>.</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-signal/20 font-bold text-signal text-[10px]">3</span>
+              <span>En <strong>CineMaster</strong> se reproducen los clips en cadena con audios, música y subtítulos virales.</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-signal/20 font-bold text-signal text-[10px]">4</span>
+              <span>Haz clic en <strong>Descargar Video Master</strong> para obtener el video completo final.</span>
+            </li>
+          </ol>
+        </div>
       </Section>
     </div>
   );

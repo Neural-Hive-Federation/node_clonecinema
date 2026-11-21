@@ -4,6 +4,7 @@ import type { Project, ProjectUpdater } from "../../types";
 import { generateImage, isPaymentRequired } from "../../lib/api";
 import { useSession } from "../../context/SessionContext";
 import { Field, Section, Spinner } from "../ui";
+import { MasterVideoPlayer } from "../video/MasterVideoPlayer";
 
 function toPromptPack(project: Project): string {
   const lines = [
@@ -108,7 +109,11 @@ export function PublishTab({
     }));
 
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">
+    <div className="space-y-6">
+      {/* 🎬 Reproductor Maestro y Ensamblador de Video Final */}
+      <MasterVideoPlayer project={project} />
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.4fr_1fr]">
       <div className="space-y-5">
         <Section
           title="Kit de publicación"
@@ -231,5 +236,6 @@ export function PublishTab({
         </Section>
       </div>
     </div>
+  </div>
   );
 }
