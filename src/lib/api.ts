@@ -192,9 +192,10 @@ export async function generateImageVariations(
 export function startVideo(
   prompt: string,
   aspectRatio: string,
-  imageUrl?: string
+  imageUrl?: string,
+  durationSeconds?: number
 ): Promise<{ success?: boolean; jobId?: string; operationName?: string; error?: string }> {
-  return post("/api/generate/video", { prompt, aspectRatio, imageUrl });
+  return post("/api/generate/video", { prompt, aspectRatio, imageUrl, durationSeconds });
 }
 
 /** Acepta tanto jobs de Kaggle como operaciones de Veo. */

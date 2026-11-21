@@ -215,13 +215,16 @@ def load_pipeline():
 def main() -> None:
     started_total = time.time()
     aspect = PAYLOAD.get("aspect_ratio") or "9:16"
-    width, height = SIZES.get(aspect, SIZES.get("9:16", (480, 832)))
+    width, height = SIZES.get(aspect, SIZES.get("9:16", (384, 640)))
     frames_per_clip = clamp_frames(PAYLOAD.get("num_frames") or 33)
     fps = int(PAYLOAD.get("fps") or 16)
 
     pipe = load_pipeline()
 
-    prompt = PAYLOAD.get("prompt") or "Cinematic motion, high quality camera push"
+    chain_prompts = PAYLOAD.get("chain_prompts")
+    if not chain_prompts:
+        chain_prompts = [PAYLOAD.get("prompt") or "Cinematic motion, high quality camera push"]
+
     initial_b64 = PAYLOAD.get("initial_image_b64") or PAYLOAD.get("image_b64")
     initial_url = PAYLOAD.get("initial_image_url") or PAYLOAD.get("image_url")
 
@@ -237,34 +240,80 @@ def main() -> None:
 
     current_image = load_image(raw_img.resize((width, height), Image.Resampling.LANCZOS))
 
-    print(f"[clonecinema] Renderizando clip Wan I2V ({width}x{height}, {fps}fps, {frames_per_clip} frames)...")
-    print(f"Prompt: {prompt}")
+    master_frames = []
+    clip_records = []
 
-    output = pipe(
-        image=current_image,
-        prompt=prompt,
-        negative_prompt=NEGATIVE_PROMPT,
-        height=height,
-        width=width,
-        num_frames=frames_per_clip,
-        guidance_scale=5.0,
-    )
+    print(f"[clonecinema] Iniciando Frame Chaining de {len(chain_prompts)} clips consecutivos ({width}x{height}, {fps}fps)...")
 
-    clip_frames = output.frames[0]
+    for idx, prompt in enumerate(chain_prompts):
+        clip_num = idx + 1
+        t_start = time.time()
+        print(f"\n--- [Clip {clip_num}/{len(chain_prompts)}] ---")
+        print(f"Prompt: {prompt[:200]}")
+
+        # Inferencia I2V
+        output = pipe(
+            image=current_image,
+            prompt=prompt,
+            negative_prompt=NEGATIVE_PROMPT,
+            height=height,
+            width=width,
+            num_frames=frames_per_clip,
+            guidance_scale=5.0,
+        )
+
+        clip_frames = output.frames[0]
+        clip_path = f"/kaggle/working/clip_{clip_num}.mp4"
+        export_to_video(clip_frames, clip_path, fps=fps)
+
+        dur_clip = round(time.time() - t_start, 1)
+        print(f"[clonecinema] Clip {clip_num} completado en {dur_clip}s -> {clip_path}")
+
+        # Guardar en la secuencia maestra
+        if idx == 0:
+            master_frames.extend(clip_frames)
+        else:
+            # Omitimos el frame [0] para evitar congelamiento de 1 cuadro en la costura
+            master_frames.extend(clip_frames[1:])
+
+        # El último frame se convierte en el ancla del siguiente clip
+        last_frame_raw = clip_frames[-1]
+        if isinstance(last_frame_raw, Image.Image):
+            last_frame_pil = last_frame_raw
+        else:
+            arr = np.array(last_frame_raw)
+            if arr.dtype in [np.float32, np.float64]:
+                arr = (np.clip(arr, 0.0, 1.0) * 255.0).astype(np.uint8)
+            last_frame_pil = Image.fromarray(arr)
+
+        current_image = load_image(last_frame_pil.resize((width, height), Image.Resampling.LANCZOS))
+        current_image.save(f"/kaggle/working/last_frame_clip_{clip_num}.png")
+
+        clip_records.append({
+            "clip": clip_num,
+            "seconds": dur_clip,
+            "prompt": prompt,
+            "frames": len(clip_frames)
+        })
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
     output_video_path = "/kaggle/working/output_video.mp4"
-    export_to_video(clip_frames, output_video_path, fps=fps)
+    export_to_video(master_frames, output_video_path, fps=fps)
 
     total_time = round(time.time() - started_total, 1)
-    print(f"[clonecinema] 🎉 Video renderizado con éxito en {total_time}s -> {output_video_path}")
+    print(f"[clonecinema] 🎉 Secuencia maestra ensamblada en {total_time}s ({len(master_frames)} frames, ~{round(len(master_frames)/fps, 1)}s) -> {output_video_path}")
 
     with open("/kaggle/working/result.json", "w", encoding="utf-8") as fh:
         json.dump(
             {
                 "job_id": PAYLOAD.get("job_id"),
-                "total_frames": len(clip_frames),
-                "total_duration_sec": round(len(clip_frames) / fps, 1),
+                "total_frames": len(master_frames),
+                "total_duration_sec": round(len(master_frames) / fps, 1),
                 "total_render_seconds": total_time,
-                "video_file": "output_video.mp4"
+                "video_file": "output_video.mp4",
+                "clips": clip_records
             },
             fh,
             indent=2
@@ -280,10 +329,19 @@ export default async function handler(req: any, res: any) {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { prompt, aspectRatio, imageUrl } = req.body || {};
+    const { prompt, aspectRatio, imageUrl, durationSeconds, seconds } = req.body || {};
     if (!prompt || typeof prompt !== "string") {
       return res.status(400).json({ error: "Falta el prompt del video." });
     }
+
+    const targetSeconds = Number(durationSeconds || seconds || 2);
+    // Cada clip de 33 frames a 16 fps produce 2 segundos netos continuos
+    const clipCount = Math.max(1, Math.min(6, Math.ceil(targetSeconds / 2.0)));
+
+    const chainPrompts = Array.from({ length: clipCount }, (_, i) => {
+      if (i === 0) return prompt.trim();
+      return `${prompt.trim()}, continuous seamless camera motion, smooth cinematic continuation, phase ${i + 1}`;
+    });
 
     const supabase = getSupabaseAdmin();
     const jobId = randomUUID();
@@ -293,6 +351,7 @@ export default async function handler(req: any, res: any) {
     const payload = {
       job_id: jobId,
       prompt: prompt.trim(),
+      chain_prompts: chainPrompts,
       aspect_ratio: aspectRatio || "9:16",
       initial_image_b64: imageRef.b64 || null,
       initial_image_url: imageRef.url || null,

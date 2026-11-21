@@ -47,7 +47,7 @@ export function RenderTab({
     setError(null);
     updateShot(shot.id, { status: "rendering", error: undefined });
     try {
-      const res = await startVideo(shot.videoPrompt, project.format, shot.imageUrl);
+      const res = await startVideo(shot.videoPrompt, project.format, shot.imageUrl, shot.seconds);
       const tracked = res.jobId || res.operationName;
       if (!tracked) throw new Error(res.error || "No se inició el render");
       updateShot(shot.id, { operationName: tracked, status: "rendering" });
