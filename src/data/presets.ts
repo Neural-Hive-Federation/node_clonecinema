@@ -78,7 +78,7 @@ export const RADAR_SOCIAL_PRESET: Project = {
         "Hombre joven carismático de cabello castaño rizado, barba recortada, mirada penetrante y expresión de urgencia creíble.",
       color: "#c8fa5a",
       avatarUrl:
-        "https://lkctxyoyajqrhaavnzrv.supabase.co/storage/v1/object/public/messages-images/clonecinema_avatar_actor.png",
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_2287f94c-5fb5-4ea6-bf1a-86d6f831c991_1795140290171.png",
     },
   ],
   locations: [
@@ -90,7 +90,7 @@ export const RADAR_SOCIAL_PRESET: Project = {
       timeOfDay: "Noche artificial",
       color: "#06b6d4",
       imageUrl:
-        "https://lkctxyoyajqrhaavnzrv.supabase.co/storage/v1/object/public/messages-images/clonecinema_set_plato.png",
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_8b3aa0d7-7f3f-4f92-bf55-79159243e3b8_1795140515114.png",
     },
   ],
   props: [
@@ -102,7 +102,7 @@ export const RADAR_SOCIAL_PRESET: Project = {
       category: "Interfaz Digital",
       color: "#3b82f6",
       imageUrl:
-        "https://lkctxyoyajqrhaavnzrv.supabase.co/storage/v1/object/public/messages-images/clonecinema_prop_hud.png",
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_cd468bf3-bd06-417d-99c5-61e9bf9be388_1795140757224.png",
     },
     {
       id: "prop-mapa",
@@ -111,7 +111,7 @@ export const RADAR_SOCIAL_PRESET: Project = {
       category: "Objeto",
       color: "#eab308",
       imageUrl:
-        "https://lkctxyoyajqrhaavnzrv.supabase.co/storage/v1/object/public/messages-images/clonecinema_prop_mapa.jpg",
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_ace4a5cc-1782-4a6f-b8ae-916f0098f645_1795142734670.png",
     },
   ],
   shots: [
@@ -119,7 +119,7 @@ export const RADAR_SOCIAL_PRESET: Project = {
       id: "shot-1",
       number: 1,
       title: "El Gancho Hiperbólico",
-      seconds: 3,
+      seconds: 7,
       camera:
         "Plano medio corto (MCU), empuje rápido (crash zoom in) hacia los ojos del presentador en Plató Virtual Radar Social",
       action:
@@ -130,7 +130,11 @@ export const RADAR_SOCIAL_PRESET: Project = {
       videoPrompt:
         "Fast push in towards the eyes of an urgent news presenter in a dark high-tech newsroom, holographic data charts erupting around him",
       imageUrl:
-        "https://lkctxyoyajqrhaavnzrv.supabase.co/storage/v1/object/public/messages-images/clonecinema_shot1_gancho.png",
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_21a2e570-dfca-4e53-961d-3cd1ad827975_1795148844207.png",
+      audioUrl:
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/audio/voices/1795238672153_czrpae.wav",
+      videoUrl:
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/kaggle_video_7999bc0d-0b12-475e-8ef5-7aaf35022739_1795238716288.mp4",
       characterId: "char-avatar",
       locationId: "loc-plato",
       propId: "prop-hud",
@@ -149,7 +153,9 @@ export const RADAR_SOCIAL_PRESET: Project = {
       videoPrompt:
         "Lateral tracking pan showing news anchor studying live network traffic collapse on floating transparent holographic displays",
       imageUrl:
-        "https://lkctxyoyajqrhaavnzrv.supabase.co/storage/v1/object/public/messages-images/clonecinema_shot2_evidencia.png",
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_623fea87-522d-4a11-8f8a-acbcbf11c0d4_1795151039389.png",
+      audioUrl:
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/audio/voices/1795238677841_1hgo2k.wav",
       characterId: "char-avatar",
       locationId: "loc-plato",
       propId: "prop-mapa",
@@ -168,7 +174,9 @@ export const RADAR_SOCIAL_PRESET: Project = {
       videoPrompt:
         "Slow orbital arc around the anchor face as background LED walls shift to deep crimson warning mode",
       imageUrl:
-        "https://lkctxyoyajqrhaavnzrv.supabase.co/storage/v1/object/public/messages-images/clonecinema_shot3_giro.png",
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_15b2a273-6f47-4bdf-8f08-c3e2ddad9b90_1795151830305.png",
+      audioUrl:
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/audio/voices/1795238683080_w5x3hr.wav",
       characterId: "char-avatar",
       locationId: "loc-plato",
     },
@@ -176,7 +184,7 @@ export const RADAR_SOCIAL_PRESET: Project = {
       id: "shot-4",
       number: 4,
       title: "El Cierre Viral y CTA",
-      seconds: 3,
+      seconds: 5,
       camera: "Plano medio frontal con corte dinámico",
       action:
         "El presentador sonríe levemente con confianza y señala hacia abajo invitando a comentar antes del cierre en bucle.",
@@ -186,7 +194,9 @@ export const RADAR_SOCIAL_PRESET: Project = {
       videoPrompt:
         "Anchor smiles with confident smirk and gestures downwards pointing towards the comment interface as camera slowly pulls back",
       imageUrl:
-        "https://lkctxyoyajqrhaavnzrv.supabase.co/storage/v1/object/public/messages-images/clonecinema_shot4_cierre.png",
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_52999aa1-7bc0-4e2b-aef8-d9c111f7424e_1795152132125.png",
+      audioUrl:
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/audio/voices/1795238687463_wrclvn.wav",
       characterId: "char-avatar",
       locationId: "loc-plato",
     },
@@ -194,8 +204,12 @@ export const RADAR_SOCIAL_PRESET: Project = {
   audio: {
     narration:
       "El noventa y nueve por ciento del internet acaba de cambiar para siempre y nadie lo notó. Desde Tokio hasta Nueva York, los algoritmos colapsaron en simultáneo. Y la razón real es algo que las plataformas intentaron ocultar hoy. ¿Ya te apareció a ti? Comenta antes de que lo borren.",
+    narrationUrl:
+      "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/audio/voices/1795238697593_1o4hai.wav",
     voice: "Fenrir",
     music: "Cyber-electronic news score pulsante a ritmo acelerado con textura de misterio tecnológico.",
+    musicUrl:
+      "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/audio/bgm/cyber_radar_invincible.mp3",
     bpm: "130 BPM",
     sfxPalette: [
       "Sub-bass impact hook",

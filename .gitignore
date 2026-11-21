@@ -24,3 +24,6 @@ kaggle.json
 .vercel
 
 .env*.local
+
+kaggle_output/
+generated_audio_urls.json

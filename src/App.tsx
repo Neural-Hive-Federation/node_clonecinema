@@ -17,10 +17,22 @@ export default function App() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length) {
-          if (!parsed.some((p: Project) => p.id === "prj-radar-social")) {
-            return [RADAR_SOCIAL_PRESET, ...parsed];
+          // Auto-sanar si el proyecto en localStorage tiene URLs rotas o le faltan los audios/video
+          const healed = parsed.map((p: Project) => {
+            if (p.id === "prj-radar-social") {
+              const hasBrokenUrls = JSON.stringify(p).includes("lkctxyoyajqrhaavnzrv");
+              const missingAudio = !p.shots.some((s) => Boolean(s.audioUrl));
+              const missingVideo = !p.shots.some((s) => Boolean(s.videoUrl));
+              if (hasBrokenUrls || missingAudio || missingVideo) {
+                return RADAR_SOCIAL_PRESET;
+              }
+            }
+            return p;
+          });
+          if (!healed.some((p: Project) => p.id === "prj-radar-social")) {
+            return [RADAR_SOCIAL_PRESET, ...healed];
           }
-          return parsed;
+          return healed;
         }
       }
     } catch {
