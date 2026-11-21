@@ -16,12 +16,15 @@
   body,
   #root {
     height: 100%;
+    min-height: 100dvh;
+    overscroll-behavior-y: none;
   }
   body {
     font-family: var(--font-sans);
     background: #08080a;
     color: #e7e7ea;
     -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
   }
   h1,
   h2,

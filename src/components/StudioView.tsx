@@ -63,8 +63,8 @@ export function StudioView({
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <header className="border-b border-zinc-800/70 px-3.5 sm:px-6 pt-3 sm:pt-4">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <header className="shrink-0 border-b border-zinc-800/70 px-3.5 sm:px-6 pt-3 sm:pt-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <button
@@ -137,8 +137,11 @@ export function StudioView({
         </nav>
       </header>
 
-      <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6">
-        <div className="mx-auto max-w-6xl">
+      <div
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 sm:px-6 pt-3 pb-28 sm:pb-10"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        <div className="mx-auto max-w-6xl pb-6">
           {project.shots.length === 0 && tab !== "script" && (
             <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-[12px] text-amber-200/80">
               Este proyecto aún no tiene planos. Vuelve al chat y pide el plan para llenar el estudio.

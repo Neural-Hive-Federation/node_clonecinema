@@ -140,7 +140,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-ink-950 md:flex-row">
+    <div className="flex h-[100dvh] max-h-[100dvh] flex-col overflow-hidden bg-ink-950 md:flex-row">
       <div className="hidden md:flex">{rail}</div>
 
       {railOpen && (
@@ -160,7 +160,7 @@ export default function App() {
         </div>
       )}
 
-      <main className="relative flex min-w-0 flex-1 flex-col pb-16 md:pb-0">
+      <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b border-zinc-800/80 px-4 py-2.5 md:hidden">
           <button
             className="flex items-center gap-2 text-[13px] font-semibold text-zinc-200"
@@ -188,7 +188,7 @@ export default function App() {
           </div>
         )}
 
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 flex-1 flex flex-col overflow-hidden">
           {view === "chat" ? (
             <ChatView
               key={active.id}

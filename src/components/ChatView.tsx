@@ -390,7 +390,7 @@ export function ChatView({
         </div>
       </div>
 
-      <div className="border-t border-zinc-800/70 bg-ink-950/80 px-6 py-4 backdrop-blur">
+      <div className="shrink-0 border-t border-zinc-800/70 bg-ink-950/90 px-3 sm:px-6 pt-3 pb-20 md:pb-4 backdrop-blur">
         <div className="mx-auto w-full max-w-3xl">
           {project.chat.length <= 1 && (
             <div className="mb-3 flex flex-wrap gap-2">
