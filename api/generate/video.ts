@@ -169,8 +169,8 @@ I2V_MODEL = PAYLOAD.get("model_id") or os.environ.get(
 )
 
 SIZES = {
-    "9:16": (480, 832),
-    "16:9": (832, 480),
+    "9:16": (384, 640),
+    "16:9": (640, 384),
     "1:1": (480, 480),
     "safe_16:9": (640, 384),
     "safe_9:16": (384, 640),
@@ -201,11 +201,15 @@ def load_pipeline():
         pipe = WanImageToVideoPipeline.from_pretrained(
             I2V_MODEL, transformer=transformer, torch_dtype=torch.float16
         )
-    pipe.to("cuda")
-    try:
-        pipe.enable_model_cpu_offload()
-    except Exception:
-        pass
+
+    if hasattr(pipe, "enable_vae_tiling"):
+        pipe.enable_vae_tiling()
+    if hasattr(pipe, "enable_vae_slicing"):
+        pipe.enable_vae_slicing()
+
+    pipe.enable_sequential_cpu_offload()
+    gc.collect()
+    torch.cuda.empty_cache()
     return pipe
 
 def main() -> None:
