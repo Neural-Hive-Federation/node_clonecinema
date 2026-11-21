@@ -133,6 +133,8 @@ export const RADAR_SOCIAL_PRESET: Project = {
         "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_21a2e570-dfca-4e53-961d-3cd1ad827975_1795148844207.png",
       audioUrl:
         "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/audio/voices/1795238672153_czrpae.wav",
+      videoUrl:
+        "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/kaggle_video_a407c34f-a4a5-4e86-8f82-4ae97c78ff15_1795251540742.mp4",
       characterId: "char-avatar",
       locationId: "loc-plato",
       propId: "prop-hud",
