@@ -24,7 +24,9 @@ export default function App() {
               const hasOldDummyVideo = JSON.stringify(p).includes("7999bc0d-0b12-475e-8ef5-7aaf35022739");
               const missingAudio = !p.shots.some((s) => Boolean(s.audioUrl));
               const missingVideos = p.shots.some((s) => !s.videoUrl);
-              if (hasBrokenUrls || hasOldDummyVideo || missingAudio || missingVideos) {
+              const missingPublish = !p.publish?.caption;
+              const missingMaster = !p.masterVideoUrl;
+              if (hasBrokenUrls || hasOldDummyVideo || missingAudio || missingVideos || missingPublish || missingMaster) {
                 return RADAR_SOCIAL_PRESET;
               }
             }

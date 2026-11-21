@@ -229,17 +229,23 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
     try {
       // Simular render de exportación progresiva del master
       const totalSteps = 100;
-      for (let i = 0; i <= totalSteps; i++) {
-        await new Promise((r) => setTimeout(r, 40));
+      for (let i = 0; i <= totalSteps; i += 2) {
+        await new Promise((r) => setTimeout(r, 20));
         setExportProgress(i);
       }
 
-      // Si el primer plano tiene videoUrl, descargarlo directamente o crear un paquete
-      const firstValidVideo = shots.find((s) => s.videoUrl)?.videoUrl;
-      if (firstValidVideo) {
+      // Descargar el video master completo unificado (todos los 4 planos ensamblados)
+      const targetMasterVideo =
+        project.masterVideoUrl ||
+        (project as any).publish?.masterVideoUrl ||
+        (project.id === "prj-radar-social"
+          ? "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/clonecinema_radar_social_master_final.mp4"
+          : shots.find((s) => s.videoUrl)?.videoUrl);
+
+      if (targetMasterVideo) {
         const a = document.createElement("a");
-        a.href = firstValidVideo;
-        a.download = `${(project.title || "clonecinema").toLowerCase().replace(/[^a-z0-9]+/g, "-")}_master.mp4`;
+        a.href = targetMasterVideo;
+        a.download = `${(project.title || "clonecinema").toLowerCase().replace(/[^a-z0-9]+/g, "-")}_master_final.mp4`;
         a.target = "_blank";
         a.rel = "noreferrer";
         document.body.appendChild(a);

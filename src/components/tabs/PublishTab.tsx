@@ -44,6 +44,7 @@ export function PublishTab({
   patch: ProjectUpdater;
 }) {
   const [copied, setCopied] = useState(false);
+  const [copiedSocial, setCopiedSocial] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { openPaywall, refreshAccount } = useSession();
@@ -139,6 +140,21 @@ export function PublishTab({
                 }
               />
             </Field>
+          </div>
+          <div className="mt-2.5 flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const text = `${publish?.caption || ""}\n\n${(publish?.hashtags || []).join(" ")}`;
+                navigator.clipboard.writeText(text.trim());
+                setCopiedSocial(true);
+                setTimeout(() => setCopiedSocial(false), 2000);
+              }}
+              className="btn btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3"
+            >
+              {copiedSocial ? <Check size={13} className="text-signal" /> : <Copy size={13} />}
+              {copiedSocial ? "¡Copiado para WhatsApp / Redes!" : "Copiar Caption + #Hashtags para WhatsApp"}
+            </button>
           </div>
           <div className="mt-4 space-y-2">
             {(publish?.platforms || []).map((p, i) => (

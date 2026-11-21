@@ -225,6 +225,43 @@ export const RADAR_SOCIAL_PRESET: Project = {
       "Tape stop",
     ],
   },
+  masterVideoUrl:
+    "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/clonecinema_radar_social_master_final.mp4",
+  publish: {
+    caption:
+      "⚠️ El 99% del Internet acaba de cambiar para siempre y nadie lo notó. Desde Tokio hasta Nueva York, los algoritmos colapsaron en simultáneo. ¿Ya te apareció a ti? Comenta antes de que lo borren.",
+    hashtags: [
+      "#RadarSocial",
+      "#InteligenciaArtificial",
+      "#TendenciaViral",
+      "#Ciberseguridad",
+      "#Algoritmos",
+      "#CloneCinema",
+      "#ViralShorts",
+      "#FYP",
+    ],
+    platforms: [
+      {
+        platform: "TikTok",
+        copy: "Gancho frontal en 1s + retención al 100%. Comenta tu país antes de que lo borren 👇",
+        hook: "El 99% del Internet acaba de cambiar para siempre...",
+      },
+      {
+        platform: "YouTube Shorts",
+        copy: "Análisis urgente de colapso de red global. ¿Ya viste el cambio en tu feed? Suscríbete para más ciber-noticias.",
+        hook: "¿Por qué nadie está hablando de lo que pasó hoy en Internet?",
+      },
+      {
+        platform: "Instagram Reels",
+        copy: "Guarda este Reel antes de que las plataformas lo censuren. Los algoritmos de recomendación acaban de mutar.",
+        hook: "Lo que intentaron ocultar hoy en todas las redes sociales.",
+      },
+    ],
+    coverPrompt:
+      "Bold high-contrast movie poster thumbnail, futuristic male anchor eyes glowing with data reflections, neon red and cyan warning text: EL 99% HA CAMBIADO, hyperrealistic 8k, viral YouTube Shorts cover",
+    coverUrl:
+      "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/keyframes/kaggle_21a2e570-dfca-4e53-961d-3cd1ad827975_1795148844207.png",
+  },
   chat: [
     {
       id: "chat-1",

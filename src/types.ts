@@ -219,6 +219,7 @@ export interface Project {
   props: PropItem[];
   audio: AudioPlan;
   publish?: PublishKit;
+  masterVideoUrl?: string;
   chat: ChatMessage[];
   createdAt: string;
   updatedAt: string;
