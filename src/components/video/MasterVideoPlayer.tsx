@@ -243,8 +243,27 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
           : shots.find((s) => s.videoUrl)?.videoUrl);
 
       if (targetMasterVideo) {
+        try {
+          // Descarga directa como archivo MP4 en disco evitando abrir pestañas intermedias
+          const res = await fetch(`${targetMasterVideo}?v=${Date.now()}`);
+          if (res.ok) {
+            const blob = await res.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = blobUrl;
+            a.download = `${(project.title || "clonecinema").toLowerCase().replace(/[^a-z0-9]+/g, "-")}_master_final.mp4`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+            return;
+          }
+        } catch {
+          // Fallback a enlace directo si fetch directo es bloqueado
+        }
+
         const a = document.createElement("a");
-        a.href = targetMasterVideo;
+        a.href = `${targetMasterVideo}?v=${Date.now()}`;
         a.download = `${(project.title || "clonecinema").toLowerCase().replace(/[^a-z0-9]+/g, "-")}_master_final.mp4`;
         a.target = "_blank";
         a.rel = "noreferrer";
