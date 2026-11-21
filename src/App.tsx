@@ -26,7 +26,8 @@ export default function App() {
               const missingVideos = p.shots.some((s) => !s.videoUrl);
               const missingPublish = !p.publish?.caption;
               const missingMaster = !p.masterVideoUrl;
-              if (hasBrokenUrls || hasOldDummyVideo || missingAudio || missingVideos || missingPublish || missingMaster) {
+              const hasContinuityGap = p.duration !== 21 || !p.shots[0]?.action?.includes("Avatar Sintético");
+              if (hasBrokenUrls || hasOldDummyVideo || missingAudio || missingVideos || missingPublish || missingMaster || hasContinuityGap) {
                 return RADAR_SOCIAL_PRESET;
               }
             }

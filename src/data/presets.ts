@@ -8,7 +8,7 @@ export const RADAR_SOCIAL_PRESET: Project = {
   title: "Radar Social: La Tendencia Imposible",
   mode: "clone",
   format: "9:16",
-  duration: 15,
+  duration: 21,
   style: "Ciber-noticioso cinematográfico hiperrealista, iluminación volumétrica de pantallas LED y HUDs holográficos",
   language: "es",
   logline:
@@ -123,10 +123,10 @@ export const RADAR_SOCIAL_PRESET: Project = {
       camera:
         "Plano medio corto (MCU), empuje rápido (crash zoom in) hacia los ojos del presentador en Plató Virtual Radar Social",
       action:
-        "El avatar de CloneCinema señala fijamente al lente con expresión de urgencia mientras gráficos flotantes estallan a su alrededor. Usa HUD Holográfico de Tendencias.",
+        "Avatar Sintético señala fijamente al lente con expresión de urgencia mientras gráficos flotantes estallan a su alrededor. Usa HUD Holográfico de Tendencias.",
       voiceover: "El noventa y nueve por ciento del internet acaba de cambiar para siempre y nadie lo notó.",
       imagePrompt:
-        "Futuristic male news anchor pointing intensely at camera, urgent expression, dark cyber studio with vertical glowing blue and cyan LED walls, holographic metrics floating around him, cinematic moody lighting, hyperrealistic 8k --ar 9:16",
+        "handsome 28-year-old male presenter (Avatar Sintético, masculine facial features, dark wavy hair, light beard stubble) pointing intensely at camera, urgent expression, dark cyber studio with vertical glowing blue and cyan LED walls, holographic metrics floating around him, cinematic moody lighting, hyperrealistic 8k --ar 9:16",
       videoPrompt:
         "Fast push in towards the eyes of an urgent news presenter in a dark high-tech newsroom, holographic data charts erupting around him",
       imageUrl:
@@ -149,7 +149,7 @@ export const RADAR_SOCIAL_PRESET: Project = {
         "Presentador analizando mapas y flujos de datos en tiempo real mientras pantallas traseras parpadean con advertencias en rojo y cyan.",
       voiceover: "Desde Tokio hasta Nueva York, los algoritmos colapsaron en simultáneo.",
       imagePrompt:
-        "Futuristic news anchor gesturing toward floating holographic screens displaying viral network graphs and rapid social media metrics, hyper-detailed UI design, cinematic moody lighting, 9:16",
+        "handsome 28-year-old male presenter (Avatar Sintético, masculine facial features, dark wavy hair, light beard stubble) gesturing toward floating holographic screens displaying viral network graphs and rapid social media metrics, hyper-detailed UI design, cinematic moody lighting, 9:16",
       videoPrompt:
         "Lateral tracking pan showing news anchor studying live network traffic collapse on floating transparent holographic displays",
       imageUrl:
@@ -172,7 +172,7 @@ export const RADAR_SOCIAL_PRESET: Project = {
         "El rostro del avatar se ilumina con un destello magenta y cyan mientras baja el tono y revela la verdad oculta.",
       voiceover: "Y la razón real es algo que las plataformas intentaron ocultar hoy.",
       imagePrompt:
-        "Extreme close up dramatic angle of cyber anchor, subtle orbital camera rotation, neon rim light reflecting on skin, cinematic depth of field, high tension look",
+        "Extreme close up dramatic angle of handsome 28-year-old male presenter (Avatar Sintético, masculine facial features, dark wavy hair, light beard stubble), subtle orbital camera rotation, neon rim light reflecting on skin, cinematic depth of field, high tension look",
       videoPrompt:
         "Slow orbital arc around the anchor face as background LED walls shift to deep crimson warning mode",
       imageUrl:
@@ -194,7 +194,7 @@ export const RADAR_SOCIAL_PRESET: Project = {
         "El presentador sonríe levemente con confianza y señala hacia abajo invitando a comentar antes del cierre en bucle.",
       voiceover: "¿Ya te apareció a ti? Comenta antes de que lo borren.",
       imagePrompt:
-        "Charismatic cyber anchor smiling confidently, pointing down toward viewer comment section, clean high-tech studio background with glowing accents, sharp focus 9:16",
+        "handsome 28-year-old male presenter (Avatar Sintético, masculine facial features, dark wavy hair, light beard stubble) smiling confidently, pointing down toward viewer comment section, clean high-tech studio background with glowing accents, sharp focus 9:16",
       videoPrompt:
         "Anchor smiles with confident smirk and gestures downwards pointing towards the comment interface as camera slowly pulls back",
       imageUrl:

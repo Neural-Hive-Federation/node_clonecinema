@@ -89,9 +89,12 @@ export function runContinuityAudit(project: Project): AuditIssue[] {
     )
     .join(" ");
 
-  // 2. Personajes huérfanos (en reparto pero nunca mencionados)
+  // 2. Personajes huérfanos (en reparto pero nunca mencionados ni asignados)
   for (const c of characters) {
-    const isMentioned = textContains(allShotsText, c.name) || textContains(allShotsText, c.role);
+    const isMentioned =
+      textContains(allShotsText, c.name) ||
+      textContains(allShotsText, c.role) ||
+      shots.some((s) => s.characterId === c.id);
     if (!isMentioned) {
       issues.push({
         id: `orphan_chr_${c.id}`,
