@@ -36,6 +36,14 @@ const COMMON_LOCATIONS = [
   "montaña", "selva", "cárcel", "celda", "bar", "café", "restaurante", "calle"
 ];
 
+function textContains(haystack: string, needle: string): boolean {
+  if (!haystack || !needle) return false;
+  const cleanHaystack = haystack.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const cleanNeedle = needle.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  if (cleanNeedle.length < 3) return false;
+  return cleanHaystack.includes(cleanNeedle);
+}
+
 function matchesEntityWord(text: string, entity: string): boolean {
   if (!text || !entity) return false;
   // Si la entidad es "cámara" y aparece como dirección cinematográfica o ángulo, no es un prop
