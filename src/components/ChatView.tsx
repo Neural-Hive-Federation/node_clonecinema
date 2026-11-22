@@ -6,10 +6,12 @@ import {
   ImagePlus,
   LayoutGrid,
   Link2,
+  Rocket,
   Send,
   Sparkles,
   TriangleAlert,
   X,
+  Zap,
 } from "lucide-react";
 import type { ChatMessage, Mode, Project, TrendingWinner } from "../types";
 import { analyzeLink, chat, updateTrendingStatus } from "../lib/api";
@@ -51,12 +53,14 @@ export function ChatView({
   onModeChange,
   onChange,
   onOpenStudio,
+  onStartAutoPilot,
 }: {
   project: Project;
   mode: Mode;
   onModeChange: (mode: Mode) => void;
   onChange: (project: Project) => void;
   onOpenStudio: () => void;
+  onStartAutoPilot?: (url: string, brief: string, winner?: TrendingWinner) => void;
 }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState<null | string>(null);
@@ -323,7 +327,16 @@ export function ChatView({
                 </div>
               )}
               {showRadar && (
-                <TrendingViralPicker key={radarKey} onSelectWinner={handleSelectWinner} busy={Boolean(busy)} />
+                <TrendingViralPicker
+                  key={radarKey}
+                  onSelectWinner={handleSelectWinner}
+                  onAutoPilotWinner={(w) =>
+                    onStartAutoPilot
+                      ? onStartAutoPilot(w.url, `Clonar este video viral de ${w.niche}: ${w.recommendedConcept}`, w)
+                      : handleSelectWinner(w)
+                  }
+                  busy={Boolean(busy)}
+                />
               )}
             </div>
           ) : project.chat.length === 0 ? (
@@ -461,9 +474,23 @@ export function ChatView({
                   onChange={(e) => handleFile(e.target.files?.[0])}
                 />
                 {detectedUrl && (
-                  <span className="flex items-center gap-1.5 rounded-lg bg-signal/10 px-2 py-1 text-[10.5px] font-medium text-signal">
-                    <Link2 size={11} /> se analizará como video
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex items-center gap-1 rounded-lg bg-signal/10 px-2 py-1 text-[10.5px] font-medium text-signal">
+                      <Link2 size={11} /> URL detectada
+                    </span>
+                    {onStartAutoPilot && (
+                      <button
+                        type="button"
+                        onClick={() => onStartAutoPilot(detectedUrl, input)}
+                        disabled={!!busy}
+                        className="flex items-center gap-1.5 rounded-xl bg-signal px-2.5 py-1 text-[11px] font-bold text-black shadow-md shadow-signal/25 transition hover:bg-signal/90 cursor-pointer"
+                        title="Clonación 100% autónoma de punta a punta"
+                      >
+                        <Rocket size={12} className="fill-black" />
+                        <span>⚡ Auto-Pilot</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-2">

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, Copy, Download, ImageDown, Share2 } from "lucide-react";
+import { Check, Copy, Download, ExternalLink, ImageDown, MessageCircle, Send, Share2, Sparkles, Video } from "lucide-react";
 import type { Project, ProjectUpdater } from "../../types";
 import { generateImage, isPaymentRequired } from "../../lib/api";
 import { useSession } from "../../context/SessionContext";
@@ -45,11 +45,40 @@ export function PublishTab({
 }) {
   const [copied, setCopied] = useState(false);
   const [copiedSocial, setCopiedSocial] = useState(false);
+  const [copiedPlatformIndex, setCopiedPlatformIndex] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { openPaywall, refreshAccount } = useSession();
 
   const publish = project.publish;
+
+  const updatePlatform = (index: number, partial: { copy?: string; hook?: string; platform?: string }) => {
+    const list = publish?.platforms || [];
+    const updated = list.map((item, idx) => (idx === index ? { ...item, ...partial } : item));
+    updatePublish({ platforms: updated });
+  };
+
+  const handleShareToPlatform = (p: { platform: string; copy: string; hook: string }, idx: number) => {
+    const hashtags = (publish?.hashtags || []).join(" ");
+    const fullMessage = `${p.hook ? `🔥 ${p.hook}\n\n` : ""}${p.copy}\n\n${hashtags}`.trim();
+
+    navigator.clipboard.writeText(fullMessage);
+    setCopiedPlatformIndex(idx);
+    setTimeout(() => setCopiedPlatformIndex(null), 3500);
+
+    const name = p.platform.toLowerCase();
+    if (name.includes("whatsapp")) {
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(fullMessage)}`, "_blank");
+    } else if (name.includes("twitter") || name.includes(" x")) {
+      window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(fullMessage)}`, "_blank");
+    } else if (name.includes("tiktok")) {
+      window.open("https://www.tiktok.com/creator-center/upload", "_blank");
+    } else if (name.includes("youtube") || name.includes("shorts")) {
+      window.open("https://studio.youtube.com", "_blank");
+    } else if (name.includes("instagram") || name.includes("reel")) {
+      window.open("https://www.instagram.com/", "_blank");
+    }
+  };
 
   function download() {
     const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
@@ -156,25 +185,114 @@ export function PublishTab({
               {copiedSocial ? "¡Copiado para WhatsApp / Redes!" : "Copiar Caption + #Hashtags para WhatsApp"}
             </button>
           </div>
-          <div className="mt-4 space-y-2">
-            {(publish?.platforms || []).map((p, i) => (
-              <div key={i} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-signal/80">
-                    {p.platform}
-                  </span>
+          {/* 🌐 Contenedores de Redes Sociales con Hipervínculos e Interacción Inteligente */}
+          <div className="mt-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-semibold text-zinc-300 flex items-center gap-1.5">
+                <Sparkles size={13} className="text-signal" />
+                Accesos Directos y Metadatos por Red Social
+              </span>
+              <span className="text-[10px] text-zinc-500">Haz clic en cada botón para abrir y publicar</span>
+            </div>
+
+            {/* Si no hay plataformas, proveemos los 4 contenedores estándar */}
+            {((publish?.platforms && publish.platforms.length > 0)
+              ? publish.platforms
+              : [
+                  { platform: "TikTok", copy: publish?.caption || "¡Mira este video viral que acaba de salir!", hook: "El 99% del Internet acaba de cambiar..." },
+                  { platform: "YouTube Shorts", copy: publish?.caption || "Análisis urgente de tendencia global.", hook: "¿Por qué nadie habla de esto?" },
+                  { platform: "Instagram Reels", copy: publish?.caption || "Guarda este Reel antes de que lo bajen.", hook: "Lo que intentaron ocultar..." },
+                  { platform: "WhatsApp", copy: `${publish?.caption || ""}\n\n${(publish?.hashtags || []).join(" ")}`, hook: "¡Tienes que ver esto!" },
+                ]
+            ).map((p, i) => {
+              const platformName = p.platform || "Red Social";
+              const isCopied = copiedPlatformIndex === i;
+              const isWA = platformName.toLowerCase().includes("whatsapp");
+              const isYT = platformName.toLowerCase().includes("youtube") || platformName.toLowerCase().includes("shorts");
+              const isTT = platformName.toLowerCase().includes("tiktok");
+              const isIG = platformName.toLowerCase().includes("instagram") || platformName.toLowerCase().includes("reel");
+              const isX = platformName.toLowerCase().includes("twitter") || platformName.toLowerCase().includes(" x");
+
+              const badgeColor = isWA
+                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                : isYT
+                ? "bg-red-500/15 text-red-400 border-red-500/30"
+                : isTT
+                ? "bg-cyan-500/15 text-cyan-400 border-cyan-500/30"
+                : isIG
+                ? "bg-pink-500/15 text-pink-400 border-pink-500/30"
+                : "bg-blue-500/15 text-blue-400 border-blue-500/30";
+
+              return (
+                <div
+                  key={i}
+                  className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3.5 transition hover:border-zinc-700 space-y-2.5 shadow-sm"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${badgeColor}`}>
+                        {platformName}
+                      </span>
+                      {isCopied && (
+                        <span className="flex items-center gap-1 text-[11px] text-signal font-semibold animate-pulse">
+                          <Check size={12} /> ¡Copiado y abriendo plataforma!
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleShareToPlatform(p, i)}
+                      className={`flex items-center gap-1.5 text-xs py-1 px-3 rounded-lg font-medium transition cursor-pointer ${
+                        isWA
+                          ? "bg-emerald-600/90 text-white hover:bg-emerald-500"
+                          : isTT
+                          ? "bg-cyan-500 text-black hover:bg-cyan-400 font-bold"
+                          : isYT
+                          ? "bg-red-600 text-white hover:bg-red-500"
+                          : isIG
+                          ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:opacity-90"
+                          : "bg-signal text-black hover:bg-signal/90 font-bold"
+                      }`}
+                      title={`Copiar datos y abrir ${platformName}`}
+                    >
+                      {isCopied ? <Check size={13} /> : isWA ? <MessageCircle size={13} /> : <ExternalLink size={13} />}
+                      <span>
+                        {isWA ? "Abrir en WhatsApp" : isX ? "Publicar en X" : `Copiar y Abrir ${platformName.split(" ")[0]}`}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Campo de Gancho editable */}
+                  <div>
+                    <div className="flex items-center justify-between text-[10.5px] text-zinc-500 mb-1">
+                      <span>⚡ Gancho inicial (Hook):</span>
+                    </div>
+                    <input
+                      type="text"
+                      className="field !py-1 !text-xs !bg-zinc-950/60"
+                      value={p.hook || ""}
+                      onChange={(e) => updatePlatform(i, { hook: e.target.value })}
+                      placeholder="Gancho de retención de los primeros 2 segundos..."
+                    />
+                  </div>
+
+                  {/* Campo de Copy / Descripción editable */}
+                  <div>
+                    <div className="flex items-center justify-between text-[10.5px] text-zinc-500 mb-1">
+                      <span>📝 Copy / Descripción para el post:</span>
+                    </div>
+                    <textarea
+                      rows={2}
+                      className="field !py-1.5 !text-xs !bg-zinc-950/60 resize-y"
+                      value={p.copy || ""}
+                      onChange={(e) => updatePlatform(i, { copy: e.target.value })}
+                      placeholder="Texto del post, llamada a la acción..."
+                    />
+                  </div>
                 </div>
-                <p className="mt-1 text-[12px] leading-relaxed text-zinc-300">{p.copy}</p>
-                <p className="mt-1 text-[11px] text-zinc-500">
-                  <span className="text-zinc-600">Gancho:</span> {p.hook}
-                </p>
-              </div>
-            ))}
-            {!publish?.platforms?.length && (
-              <p className="py-4 text-center text-[12px] text-zinc-600">
-                El director genera el copy por plataforma al crear el plan.
-              </p>
-            )}
+              );
+            })}
           </div>
         </Section>
 

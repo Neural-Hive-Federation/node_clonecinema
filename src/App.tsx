@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Clapperboard, Film, FolderOpen, MessageSquare, Mic, X } from "lucide-react";
-import type { Project, Mode, ProjectUpdater, StudioTab } from "./types";
+import type { Project, Mode, ProjectUpdater, StudioTab, TrendingWinner } from "./types";
 import { PRESET_PROJECTS, RADAR_SOCIAL_PRESET } from "./data/presets";
 import { createEmptyProject, uid } from "./lib/project";
 import { LeftRail } from "./components/LeftRail";
 import { ChatView } from "./components/ChatView";
 import { StudioView } from "./components/StudioView";
+import { AutoPilotModal } from "./components/AutoPilotModal";
+import { runFullAutoPilot, type AutoPilotState } from "./lib/autoPilot";
 
 const STORAGE_KEY = "clonecinema_projects_v1";
 const ACTIVE_KEY = "clonecinema_active_v1";
@@ -55,6 +57,58 @@ export default function App() {
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
   const [railOpen, setRailOpen] = useState(false);
   const [storageFull, setStorageFull] = useState(false);
+  const [autoPilotState, setAutoPilotState] = useState<AutoPilotState | null>(null);
+  const [showAutoPilotModal, setShowAutoPilotModal] = useState(false);
+
+  const handleStartAutoPilot = (url: string, brief: string, winner?: TrendingWinner) => {
+    setShowAutoPilotModal(true);
+    setAutoPilotState({
+      isActive: true,
+      stage: 1,
+      stageName: "Iniciando Auto-Pilot Director",
+      percent: 5,
+      currentAction: "Conectando con el motor viral...",
+      logs: [
+        {
+          time: new Date().toLocaleTimeString(),
+          message: `Iniciando clonación autónoma para: ${winner?.title || url}`,
+          type: "info",
+        },
+      ],
+      isComplete: false,
+    });
+
+    void runFullAutoPilot(
+      active,
+      url,
+      brief,
+      winner
+        ? {
+            title: winner.title,
+            author: winner.author,
+            niche: winner.niche,
+            hookType: winner.hookType,
+            duration: winner.duration,
+          }
+        : undefined,
+      (progress, currentProj) => {
+        setAutoPilotState(progress);
+        updateProject(currentProj);
+        if (progress.isComplete) {
+          setView("studio");
+          setTab("publish");
+        }
+      }
+    )
+      .then((finalProject) => {
+        updateProject(finalProject);
+        setView("studio");
+        setTab("publish");
+      })
+      .catch((err) => {
+        console.error("AutoPilot Error:", err);
+      });
+  };
 
   const active = useMemo(() => {
     return projects.find((p) => p.id === activeId) || projects[0];
@@ -250,6 +304,7 @@ export default function App() {
                 setTab("storyboard");
                 setView("studio");
               }}
+              onStartAutoPilot={handleStartAutoPilot}
             />
           ) : (
             <StudioView
@@ -261,6 +316,35 @@ export default function App() {
             />
           )}
         </div>
+
+        {/* Modal de Piloto Automático */}
+        {showAutoPilotModal && autoPilotState && (
+          <AutoPilotModal
+            state={autoPilotState}
+            onClose={() => setShowAutoPilotModal(false)}
+            onGoToStudio={() => {
+              setShowAutoPilotModal(false);
+              setView("studio");
+              setTab("publish");
+            }}
+            projectTitle={active.title || active.name}
+          />
+        )}
+
+        {/* Floating pill si está minimizado */}
+        {autoPilotState?.isActive && !showAutoPilotModal && (
+          <button
+            onClick={() => setShowAutoPilotModal(true)}
+            className="fixed bottom-20 md:bottom-6 right-4 z-40 flex items-center gap-2.5 rounded-2xl border border-signal/40 bg-zinc-950/95 backdrop-blur-md px-4 py-2.5 text-xs font-bold text-signal shadow-2xl shadow-signal/20 hover:scale-105 transition cursor-pointer"
+          >
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-signal opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-signal"></span>
+            </span>
+            <span>⚡ Auto-Pilot: {autoPilotState.percent}%</span>
+            <span className="text-[10.5px] text-zinc-400 font-mono">({autoPilotState.stageName.split(" ")[0]})</span>
+          </button>
+        )}
 
         {/* Mobile Bottom Navigation Bar */}
         <nav className="flex md:hidden fixed bottom-0 left-0 right-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800/90 px-2 py-1.5 justify-around items-center text-xs shadow-2xl">

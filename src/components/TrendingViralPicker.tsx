@@ -196,11 +196,13 @@ function WinnerAnalyticsModal({
   winner,
   onClose,
   onClone,
+  onAutoPilot,
   busy,
 }: {
   winner: TrendingWinner;
   onClose: () => void;
   onClone: () => void;
+  onAutoPilot?: () => void;
   busy: boolean;
 }) {
   const an = winner.analytics;
@@ -351,7 +353,7 @@ function WinnerAnalyticsModal({
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="rounded-xl border border-zinc-700 px-4 py-2 text-[12px] font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition"
+              className="rounded-xl border border-zinc-700 px-3.5 py-2 text-[12px] font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition"
             >
               Cerrar
             </button>
@@ -361,11 +363,24 @@ function WinnerAnalyticsModal({
                 onClone();
                 onClose();
               }}
-              className="flex items-center gap-2 rounded-xl bg-signal px-5 py-2 text-[12.5px] font-bold text-black shadow-lg shadow-signal/20 hover:bg-signal/90 transition cursor-pointer"
+              className="flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-[12px] font-semibold text-zinc-200 hover:bg-zinc-800 hover:text-white transition cursor-pointer"
             >
-              <Zap size={14} className="fill-black" />
-              <span>Clonar este Ganador Ahora</span>
+              <Zap size={14} className="text-signal" />
+              <span>Paso a paso</span>
             </button>
+            {onAutoPilot && (
+              <button
+                disabled={busy}
+                onClick={() => {
+                  onAutoPilot();
+                  onClose();
+                }}
+                className="flex items-center gap-2 rounded-xl bg-signal px-4 py-2 text-[12.5px] font-bold text-black shadow-lg shadow-signal/20 hover:bg-signal/90 transition cursor-pointer"
+              >
+                <Rocket size={14} className="fill-black" />
+                <span>⚡ Auto-Pilot Completo</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -377,9 +392,11 @@ function WinnerAnalyticsModal({
 
 export function TrendingViralPicker({
   onSelectWinner,
+  onAutoPilotWinner,
   busy,
 }: {
   onSelectWinner: (winner: TrendingWinner) => void;
+  onAutoPilotWinner?: (winner: TrendingWinner) => void;
   busy: boolean;
 }) {
   const [winners, setWinners] = useState<TrendingWinner[]>([]);
@@ -892,14 +909,26 @@ export function TrendingViralPicker({
                     <span>🟡 En Producción · Re-abrir en Estudio</span>
                   </button>
                 ) : (
-                  <button
-                    disabled={busy}
-                    onClick={() => onSelectWinner(winner)}
-                    className="w-full flex items-center justify-center gap-2 rounded-xl bg-signal px-4 py-2.5 text-[13px] font-bold text-black shadow-[0_0_15px_rgba(200,250,90,0.25)] transition hover:bg-signal/90 hover:shadow-[0_0_25px_rgba(200,250,90,0.4)] disabled:opacity-50 cursor-pointer"
-                  >
-                    <Zap size={15} className="fill-black" />
-                    <span>⚡ Clonar este ganador</span>
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      disabled={busy}
+                      onClick={() => onSelectWinner(winner)}
+                      className="flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900/90 px-2 py-2.5 text-[11.5px] font-semibold text-zinc-200 transition hover:bg-zinc-800 hover:text-white disabled:opacity-50 cursor-pointer"
+                      title="Clonar y abrir en estudio para revisar paso a paso"
+                    >
+                      <Zap size={13} className="text-signal" />
+                      <span>Paso a paso</span>
+                    </button>
+                    <button
+                      disabled={busy}
+                      onClick={() => (onAutoPilotWinner ? onAutoPilotWinner(winner) : onSelectWinner(winner))}
+                      className="flex items-center justify-center gap-1.5 rounded-xl bg-signal px-2 py-2.5 text-[11.5px] font-bold text-black shadow-[0_0_15px_rgba(200,250,90,0.25)] transition hover:bg-signal/90 hover:shadow-[0_0_25px_rgba(200,250,90,0.4)] disabled:opacity-50 cursor-pointer"
+                      title="Clonación 100% automática de punta a punta"
+                    >
+                      <Rocket size={13} className="fill-black" />
+                      <span>⚡ Auto-Pilot</span>
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -924,6 +953,7 @@ export function TrendingViralPicker({
           winner={modalWinner}
           onClose={() => setModalWinner(null)}
           onClone={() => onSelectWinner(modalWinner)}
+          onAutoPilot={onAutoPilotWinner ? () => onAutoPilotWinner(modalWinner) : undefined}
           busy={busy}
         />
       )}
