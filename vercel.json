@@ -3,6 +3,8 @@
   "buildCommand": "vite build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/api/viral/mine-frames", "destination": "/api/viral/analyze?action=mine-frames" },
+    { "source": "/api/viral/trending/status", "destination": "/api/viral/trending" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

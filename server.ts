@@ -962,6 +962,32 @@ app.post("/api/viral/trending/status", (req: Request, res: Response) => {
   return res.status(404).json({ error: "Video no encontrado o estado inválido." });
 });
 
+// Despacho de minería de frames quirúrgica al Nodo Fénix
+app.post("/api/viral/mine-frames", async (req: Request, res: Response) => {
+  const { url, projectId, duration } = req.body || {};
+  if (!url) return res.status(400).json({ error: "Falta la URL del video fuente" });
+
+  const supabaseUrl = process.env.SUPABASE_URL || "https://micjwzatshemmovaneix.supabase.co";
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_ANON_KEY || "";
+  if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: "Supabase no disponible" });
+
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase.from("messages").insert({
+      sender_id: "CLONECINEMA_AUTOPILOT",
+      type: "fenix_frame_mining",
+      content: `Misión de minería de frames para video: ${url}`,
+      metadata: { url, projectId: projectId || "prj-autopilot", duration: duration || 15, timestamp: Date.now() },
+    }).select();
+
+    if (error) return res.status(500).json({ success: false, error: error.message });
+    return res.json({ success: true, message: "Misión enviada al Nodo Fénix con éxito.", missionId: data?.[0]?.id });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || String(err) });
+  }
+});
+
 // Analyze a viral link and return its structure + a remix plan
 app.post("/api/viral/analyze", async (req: Request, res: Response) => {
   const {
