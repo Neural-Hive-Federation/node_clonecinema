@@ -39,10 +39,16 @@ export function createEmptyProject(mode: Project["mode"] = "clone"): Project {
 
 /**
  * Applies an AI plan onto a project. Media that already existed (images, videos,
- * renders) survives when the shot keeps the same number.
+ * renders) survives when the shot keeps the same number, unless resetMedia is true.
  */
-export function applyPlan(base: Project, plan: PlanPayload): Project {
-  const previousShots = new Map(base.shots.map((s) => [s.number, s]));
+export function applyPlan(
+  base: Project,
+  plan: PlanPayload,
+  options?: { resetMedia?: boolean }
+): Project {
+  const previousShots = options?.resetMedia
+    ? new Map()
+    : new Map(base.shots.map((s) => [s.number, s]));
 
   const shots = (plan.shots || []).map((shot, index) => {
     const number = Number(shot.number) || index + 1;

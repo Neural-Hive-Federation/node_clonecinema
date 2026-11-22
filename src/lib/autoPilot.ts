@@ -100,7 +100,9 @@ export async function runFullAutoPilot(
     });
 
     if (analysisRes.plan) {
-      currentProject = applyPlan(currentProject, analysisRes.plan);
+      // Al clonar un nuevo video viral con Auto-Pilot, reseteamos los medios previos para
+      // generar el nuevo casting, nuevos keyframes y videos limpios del personaje transmutado
+      currentProject = applyPlan(currentProject, analysisRes.plan, { resetMedia: true });
       currentProject.sourceUrl = url;
       if (analysisRes.sourceMeta) {
         currentProject.sourceMeta = analysisRes.sourceMeta;
@@ -214,7 +216,7 @@ export async function runFullAutoPilot(
         );
 
         try {
-          const voiceUrl = await generateSpeech(textToSpeak, currentProject.audio.voice || "es-ES-Neural2-B");
+          const voiceUrl = await generateSpeech(textToSpeak, currentProject.audio.voice || "Fenrir");
           if (voiceUrl) {
             currentProject.shots[i] = { ...currentProject.shots[i], audioUrl: voiceUrl };
             addLog(`Voz de Plano ${shot.number} sincronizada.`, "success");

@@ -328,7 +328,7 @@ function buildTransmutedPlan(input: {
     shots,
     audio: {
       narration: shots.map((s) => s.voiceover).join(" "),
-      voice: "es-ES-Neural2-B",
+      voice: "Fenrir",
       music: "Cyber Radar Social",
       bpm: "128",
       sfxPalette: ["Sub-bass impact", "Digital glitch", "Tension riser", "Reverse whoosh"],
