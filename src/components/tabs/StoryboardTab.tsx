@@ -25,7 +25,7 @@ export function StoryboardTab({
   const [lightbox, setLightbox] = useState<{ src: string; title: string; subtitle?: string } | null>(null);
   const { openPaywall, refreshAccount, costs } = useSession();
 
-  const selected = project.shots.find((s) => s.id === selectedId) || project.shots[0];
+  const selected = (project.shots || []).find((s) => s.id === selectedId) || (project.shots || [])[0];
 
   async function generateVoiceForShot(shot: Shot) {
     const textToSpeak = (shot.voiceover || shot.dialogue || "").trim();
@@ -101,11 +101,11 @@ export function StoryboardTab({
 
   const updateShot = (id: string, partial: Partial<Shot>) =>
     patch((prev) => ({
-      shots: prev.shots.map((s) => (s.id === id ? { ...s, ...partial } : s)),
+      shots: (prev.shots || []).map((s) => (s.id === id ? { ...s, ...partial } : s)),
     }));
 
   const addShot = () => {
-    const nextNumber = project.shots.length + 1;
+    const nextNumber = (project.shots || []).length + 1;
     const newShot: Shot = {
       id: uid("sht"),
       number: nextNumber,
@@ -117,15 +117,15 @@ export function StoryboardTab({
       videoPrompt: `Cinematic motion, scene ${nextNumber}, photorealistic, smooth movement`,
     };
     patch((prev) => ({
-      shots: [...prev.shots, newShot],
-      duration: prev.duration + 3,
+      shots: [...(prev.shots || []), newShot],
+      duration: (prev.duration || 0) + 3,
     }));
     setSelectedId(newShot.id);
   };
 
   const deleteShot = (id: string) => {
     patch((prev) => {
-      const remaining = prev.shots.filter((s) => s.id !== id);
+      const remaining = (prev.shots || []).filter((s) => s.id !== id);
       const renumbered = remaining.map((s, idx) => ({ ...s, number: idx + 1 }));
       const newDuration = renumbered.reduce((acc, s) => acc + (Number(s.seconds) || 0), 0);
       return {
@@ -134,7 +134,7 @@ export function StoryboardTab({
       };
     });
     if (selectedId === id) {
-      const remaining = project.shots.filter((s) => s.id !== id);
+      const remaining = (project.shots || []).filter((s) => s.id !== id);
       setSelectedId(remaining[0]?.id ?? null);
     }
   };
@@ -182,7 +182,7 @@ export function StoryboardTab({
     setBulk(false);
   }
 
-  if (project.shots.length === 0) {
+  if ((project.shots || []).length === 0) {
     return (
       <EmptyState
         icon={<Layers size={18} />}
@@ -204,9 +204,9 @@ export function StoryboardTab({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="chip chip-active">{project.format}</span>
-              <span className="chip">{project.shots.length} planos</span>
+              <span className="chip">{(project.shots || []).length} planos</span>
               <span className="chip">
-                {project.shots.filter((s) => s.imageUrl).length} keyframes
+                {(project.shots || []).filter((s) => s.imageUrl).length} keyframes
               </span>
               <button
                 className="btn btn-ghost text-[11px] border border-zinc-800 hover:border-zinc-700 hover:text-zinc-100 ml-1"
@@ -237,7 +237,7 @@ export function StoryboardTab({
           )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {project.shots.map((shot) => {
+            {(project.shots || []).map((shot) => {
               const loading = loadingIds.includes(shot.id);
               const active = shot.id === selected?.id;
               return (
@@ -574,7 +574,7 @@ export function StoryboardTab({
                               className="w-full bg-zinc-900 border border-zinc-800 text-[9.5px] text-zinc-200 rounded px-1 py-0.5 focus:outline-none focus:border-signal truncate"
                             >
                               <option value="">(Sin actor)</option>
-                              {project.characters.map((c) => (
+                              {(project.characters || []).map((c) => (
                                 <option key={c.id} value={c.id}>
                                   {c.name} {c.avatarUrl ? "✓" : "(sin foto)"}
                                 </option>
@@ -608,7 +608,7 @@ export function StoryboardTab({
                               className="w-full bg-zinc-900 border border-zinc-800 text-[9.5px] text-zinc-200 rounded px-1 py-0.5 focus:outline-none focus:border-signal truncate"
                             >
                               <option value="">(Sin set)</option>
-                              {project.locations.map((l) => (
+                              {(project.locations || []).map((l) => (
                                 <option key={l.id} value={l.id}>
                                   {l.name} {l.imageUrl ? "✓" : "(sin foto)"}
                                 </option>
@@ -642,7 +642,7 @@ export function StoryboardTab({
                               className="w-full bg-zinc-900 border border-zinc-800 text-[9.5px] text-zinc-200 rounded px-1 py-0.5 focus:outline-none focus:border-signal truncate"
                             >
                               <option value="">(Sin prop)</option>
-                              {project.props.map((p) => (
+                              {(project.props || []).map((p) => (
                                 <option key={p.id} value={p.id}>
                                   {p.name} {p.imageUrl ? "✓" : "(sin foto)"}
                                 </option>

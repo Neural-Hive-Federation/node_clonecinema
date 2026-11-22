@@ -40,17 +40,17 @@ export function CastTab({
 
   const updateCharacter = (id: string, partial: Partial<Character>) =>
     patch((prev) => ({
-      characters: prev.characters.map((c) => (c.id === id ? { ...c, ...partial } : c)),
+      characters: (prev.characters || []).map((c) => (c.id === id ? { ...c, ...partial } : c)),
     }));
 
   const updateLocation = (id: string, partial: Partial<LocationRef>) =>
     patch((prev) => ({
-      locations: prev.locations.map((l) => (l.id === id ? { ...l, ...partial } : l)),
+      locations: (prev.locations || []).map((l) => (l.id === id ? { ...l, ...partial } : l)),
     }));
 
   const updateProp = (id: string, partial: Partial<PropItem>) =>
     patch((prev) => ({
-      props: prev.props.map((p) => (p.id === id ? { ...p, ...partial } : p)),
+      props: (prev.props || []).map((p) => (p.id === id ? { ...p, ...partial } : p)),
     }));
 
   async function portrait(character: Character) {
@@ -221,7 +221,7 @@ export function CastTab({
             </p>
           ) : (
             <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2">
-              {project.characters.map((c) => (
+              {(project.characters || []).map((c) => (
                 <div key={c.id} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 space-y-2.5 hover:border-zinc-700/80 transition">
                   <div className="flex gap-3">
                     {/* Thumbnail Box / Dropzone */}
@@ -509,7 +509,7 @@ export function CastTab({
               <p className="py-4 text-center text-[12px] text-zinc-600">Sin sets definidos.</p>
             ) : (
               <div className="space-y-3">
-                {project.locations.map((l) => (
+                {(project.locations || []).map((l) => (
                   <div key={l.id} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 space-y-2.5 hover:border-zinc-700/80 transition">
                     <div className="flex gap-3">
                       {/* Unified Thumbnail Box / Dropzone */}
@@ -667,7 +667,7 @@ export function CastTab({
               <p className="py-4 text-center text-[12px] text-zinc-600">Sin props definidos.</p>
             ) : (
               <div className="space-y-3">
-                {project.props.map((p) => (
+                {(project.props || []).map((p) => (
                   <div key={p.id} className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 space-y-2.5 hover:border-zinc-700/80 transition">
                     <div className="flex gap-3">
                       {/* Unified Thumbnail Box / Dropzone */}

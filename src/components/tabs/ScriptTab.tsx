@@ -99,15 +99,15 @@ export function ScriptTab({
         <Section
           title="Guion por planos"
           subtitle="Cada plano con su cámara, acción, diálogo y audio."
-          action={<span className="chip">{project.shots.length} planos</span>}
+          action={<span className="chip">{(project.shots || []).length} planos</span>}
         >
-          {project.shots.length === 0 ? (
+          {(project.shots || []).length === 0 ? (
             <p className="py-6 text-center text-[12px] text-zinc-600">
               Pide un plan en el chat para ver el guion aquí.
             </p>
           ) : (
             <div className="space-y-2">
-              {project.shots.map((shot) => (
+              {(project.shots || []).map((shot) => (
                 <div
                   key={shot.id}
                   className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3.5"
@@ -223,13 +223,13 @@ export function ScriptTab({
           </Section>
         )}
 
-        {project.references.length > 0 && (
+        {(project.references || []).length > 0 && (
           <Section
             title="Qué se conserva y qué se reemplaza"
             subtitle="El corazón del clon: el esqueleto no se toca."
           >
             <div className="space-y-2">
-              {project.references.map((ref) => (
+              {(project.references || []).map((ref) => (
                 <div
                   key={ref.id}
                   className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-3 py-2.5"

@@ -348,10 +348,10 @@ export function PublishTab({
             {[
               ["Gancho en menos de 2 s", true],
               ["Texto en pantalla con contraste real", true],
-              ["Narración normalizada a -14 LUFS", !!project.audio.narration],
+              ["Narración normalizada a -14 LUFS", !!project.audio?.narration],
               ["Portada con espacio para el título", !!publish?.coverUrl],
               ["Copy adaptado por plataforma", !!publish?.platforms?.length],
-              ["Clips descargados y unidos", project.shots.some((s) => s.videoUrl)],
+              ["Clips descargados y unidos", (project.shots || []).some((s) => s.videoUrl)],
             ].map(([label, ok], i) => (
               <li key={i} className="flex items-center gap-2">
                 <span

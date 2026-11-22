@@ -3,7 +3,7 @@ import type { PlanPayload, Project } from "../types";
 export const uid = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 
 export function totalDuration(project: Project): number {
-  return project.shots.reduce((sum, s) => sum + (Number(s.seconds) || 0), 0);
+  return (project.shots || []).reduce((sum, s) => sum + (Number(s.seconds) || 0), 0);
 }
 
 export function createEmptyProject(mode: Project["mode"] = "clone"): Project {
@@ -48,7 +48,7 @@ export function applyPlan(
 ): Project {
   const previousShots = options?.resetMedia
     ? new Map()
-    : new Map(base.shots.map((s) => [s.number, s]));
+    : new Map((base.shots || []).map((s) => [s.number, s]));
 
   const shots = (plan.shots || []).map((shot, index) => {
     const number = Number(shot.number) || index + 1;

@@ -173,7 +173,7 @@ export function ChatView({
     setJustApplied(false);
 
     const url = text.match(URL_RE)?.[1];
-    const history = [...withUser.chat].map((m) => ({ role: m.role, content: m.content }));
+    const history = [...(withUser.chat || [])].map((m) => ({ role: m.role, content: m.content }));
 
     try {
       if (url) {
@@ -360,7 +360,7 @@ export function ChatView({
           ) : null}
 
           <div className="space-y-6">
-            {project.chat.map((m) => (
+            {(project.chat || []).map((m) => (
               <MessageBubble key={m.id} message={m} />
             ))}
           </div>

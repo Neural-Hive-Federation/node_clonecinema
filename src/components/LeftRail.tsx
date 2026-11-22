@@ -59,7 +59,7 @@ export function LeftRail({
           Proyectos
         </div>
         <div className="space-y-1">
-          {projects.map((p) => {
+          {(projects || []).map((p) => {
             const active = p.id === activeId;
             return (
               <div

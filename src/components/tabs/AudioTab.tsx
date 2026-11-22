@@ -115,7 +115,7 @@ export function AudioTab({
 
   const updateShot = (shotId: string, partial: Partial<Shot>) =>
     patch((prev) => ({
-      shots: prev.shots.map((s) => (s.id === shotId ? { ...s, ...partial } : s)),
+      shots: (prev.shots || []).map((s) => (s.id === shotId ? { ...s, ...partial } : s)),
     }));
 
   // Generar narración global del proyecto
@@ -159,7 +159,7 @@ export function AudioTab({
   // Generar todas las voces de los planos en lote
   async function narrateAllShots() {
     setError(null);
-    for (const shot of project.shots) {
+    for (const shot of (project.shots || [])) {
       const textToSpeak = (shot.voiceover || shot.dialogue || "").trim();
       if (!textToSpeak) continue;
       setLoadingShotIds((prev) => [...prev, shot.id]);
@@ -241,7 +241,7 @@ export function AudioTab({
         >
           <div className="flex items-center justify-between pb-1">
             <span className="text-[11px] text-zinc-400">
-              {project.shots.filter((s) => Boolean(s.audioUrl)).length} de {project.shots.length} audios listos
+              {(project.shots || []).filter((s) => Boolean(s.audioUrl)).length} de {(project.shots || []).length} audios listos
             </span>
             <button
               onClick={narrateAllShots}
@@ -251,11 +251,11 @@ export function AudioTab({
             </button>
           </div>
 
-          {project.shots.length === 0 ? (
+          {(project.shots || []).length === 0 ? (
             <p className="py-4 text-center text-[12px] text-zinc-600">Sin planos todavía en el Storyboard.</p>
           ) : (
             <div className="space-y-3">
-              {project.shots.map((s) => {
+              {(project.shots || []).map((s) => {
                 const textLine = (s.voiceover || s.dialogue || "").trim();
                 const estimatedSec = estimateSpeechSeconds(textLine);
                 const shotSec = Number(s.seconds) || 3;
@@ -447,7 +447,7 @@ export function AudioTab({
 
         <Section title="Paleta de SFX" subtitle="Los sonidos que sostienen los cortes.">
           <div className="flex flex-wrap gap-1.5">
-            {project.audio.sfxPalette.map((s, i) => (
+            {(project.audio?.sfxPalette || []).map((s, i) => (
               <span key={i} className="chip">
                 {s}
               </span>
@@ -457,7 +457,7 @@ export function AudioTab({
             <Field label="Separados por coma">
               <input
                 className="field"
-                value={project.audio.sfxPalette.join(", ")}
+                value={(project.audio?.sfxPalette || []).join(", ")}
                 onChange={(e) =>
                   setAudio({
                     sfxPalette: e.target.value

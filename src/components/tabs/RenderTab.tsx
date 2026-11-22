@@ -17,11 +17,11 @@ export function RenderTab({
 
   const updateShot = (id: string, partial: Partial<Shot>) =>
     patch((prev) => ({
-      shots: prev.shots.map((s) => (s.id === id ? { ...s, ...partial } : s)),
+      shots: (prev.shots || []).map((s) => (s.id === id ? { ...s, ...partial } : s)),
     }));
 
   useEffect(() => {
-    const pending = project.shots.filter((s) => s.status === "rendering" && s.operationName);
+    const pending = (project.shots || []).filter((s) => s.status === "rendering" && s.operationName);
     if (pending.length === 0) return;
 
     const timer = setInterval(async () => {
@@ -59,14 +59,14 @@ export function RenderTab({
     }
   }
 
-  const ready = project.shots.filter((s) => s.videoUrl).length;
+  const ready = (project.shots || []).filter((s) => s.videoUrl).length;
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="chip chip-active">{project.format}</span>
-          <span className="chip">{project.shots.length} planos</span>
+          <span className="chip">{(project.shots || []).length} planos</span>
           <span className="chip">{ready} renderizados</span>
         </div>
         <p className="text-[10.5px] text-zinc-600">
@@ -80,14 +80,14 @@ export function RenderTab({
         </div>
       )}
 
-      {project.shots.length === 0 && (
+      {(project.shots || []).length === 0 && (
         <div className="panel px-5 py-10 text-center text-[12px] text-zinc-500">
           Sin planos que renderizar.
         </div>
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        {project.shots.map((shot) => {
+        {(project.shots || []).map((shot) => {
           const rendering = shot.status === "rendering";
           return (
             <div key={shot.id} className="panel overflow-hidden">
