@@ -294,6 +294,19 @@ function buildTransmutedPlan(input: {
     viralDNA: {
       hook: `Gancho frontal de impacto en los primeros 1.5s adaptado de ${input.info.author}.`,
       pattern: "Gancho imposible ➔ ruptura de expectativa ➔ escalada de peligro ➔ remate en bucle.",
+      beats: [
+        { at: "0:00", label: "Gancho Imposible", why: "Interrupción de patrón visual en los primeros 1.5s" },
+        { at: "0:03", label: "Ruptura de Expectativa", why: "Cambio de ritmo para evitar abandono de swipe" },
+        { at: "0:07", label: "Escalada de Tensión", why: "Pico de dopamina y revelación del conflicto" },
+        { at: "0:12", label: "Cierre en Bucle y CTA", why: "Disparo de comentarios y retención mayor al 100%" },
+      ],
+      retentionTricks: [
+        "Corte de plano cada 2 a 3 segundos",
+        "Subtítulos dinámicos de alto contraste",
+        "Efecto de sonido de impacto sub-bass en el segundo 0",
+        "Bucle continuo entre el último y primer plano",
+      ],
+      cta: "Comenta antes de que lo censuren 👇",
       whyItWorks: `Replica la curva de retención que le dio ${input.info.views} vistas al video original sin infringir derechos de autor.`,
       retentionScore: 98,
       sourceViews: input.info.views,

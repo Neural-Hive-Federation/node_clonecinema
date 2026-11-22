@@ -171,43 +171,49 @@ export function ScriptTab({
               <p className="mt-1 text-[12px] leading-relaxed text-zinc-300">{dna.pattern}</p>
             </div>
 
-            <div className="mt-4">
-              <div className="label mb-2">Beats</div>
-              <div className="relative space-y-3 border-l border-zinc-800 pl-4">
-                {dna.beats.map((b, i) => (
-                  <div key={i} className="relative">
-                    <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-signal/70 ring-4 ring-ink-900" />
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-display text-[10.5px] font-bold text-signal">
-                        {b.at}
-                      </span>
-                      <span className="text-[12px] font-medium text-zinc-200">{b.label}</span>
+            {dna.beats && dna.beats.length > 0 && (
+              <div className="mt-4">
+                <div className="label mb-2">Beats</div>
+                <div className="relative space-y-3 border-l border-zinc-800 pl-4">
+                  {(dna.beats || []).map((b, i) => (
+                    <div key={i} className="relative">
+                      <span className="absolute -left-[21px] top-1 h-2 w-2 rounded-full bg-signal/70 ring-4 ring-ink-900" />
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-display text-[10.5px] font-bold text-signal">
+                          {b.at}
+                        </span>
+                        <span className="text-[12px] font-medium text-zinc-200">{b.label}</span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">{b.why}</p>
                     </div>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-zinc-500">{b.why}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="mt-4">
-              <div className="label mb-2">Trucos de retención</div>
-              <ul className="space-y-1.5">
-                {dna.retentionTricks.map((t, i) => (
-                  <li key={i} className="flex items-start gap-2 text-[11.5px] text-zinc-400">
-                    <Check size={12} className="mt-0.5 shrink-0 text-signal/70" />
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="mt-3 flex items-start gap-2 rounded-lg bg-zinc-900/60 px-3 py-2">
-              <ArrowRight size={12} className="mt-0.5 shrink-0 text-zinc-500" />
-              <div>
-                <div className="label">CTA</div>
-                <p className="text-[11.5px] text-zinc-300">{dna.cta}</p>
+            {dna.retentionTricks && dna.retentionTricks.length > 0 && (
+              <div className="mt-4">
+                <div className="label mb-2">Trucos de retención</div>
+                <ul className="space-y-1.5">
+                  {(dna.retentionTricks || []).map((t, i) => (
+                    <li key={i} className="flex items-start gap-2 text-[11.5px] text-zinc-400">
+                      <Check size={12} className="mt-0.5 shrink-0 text-signal/70" />
+                      {t}
+                    </li>
+                  ))}
+                </ul>
               </div>
-            </div>
+            )}
+
+            {dna.cta && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg bg-zinc-900/60 px-3 py-2">
+                <ArrowRight size={12} className="mt-0.5 shrink-0 text-zinc-500" />
+                <div>
+                  <div className="label">CTA</div>
+                  <p className="text-[11.5px] text-zinc-300">{dna.cta}</p>
+                </div>
+              </div>
+            )}
           </Section>
         ) : (
           <Section title="ADN viral" subtitle="Se completa al analizar un video o generar un plan.">
