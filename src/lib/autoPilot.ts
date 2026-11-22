@@ -133,6 +133,16 @@ export async function runFullAutoPilot(
       addLog("El análisis no devolvió un nuevo plan. Usando guion actual del proyecto.", "warning");
     }
 
+    // 🦅 Disparo al Nodo Fénix para minería quirúrgica de frames
+    if (url && (url.includes("tiktok.com") || url.includes("youtube.com") || url.includes("instagram.com"))) {
+      addLog("🦅 Nodo Fénix activado: Minería de fotogramas clave en curso para Wan 2.1...");
+      fetch("/api/viral/mine-frames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, projectId: currentProject.id, duration: currentProject.duration }),
+      }).catch(() => {});
+    }
+
     notify(
       1,
       "Análisis de ADN Viral y Estructura Cinematográfica",
