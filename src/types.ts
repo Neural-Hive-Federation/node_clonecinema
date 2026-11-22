@@ -83,6 +83,7 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
   attachments?: string[];
+  scoutCard?: SourceMeta;
 }
 
 /**
@@ -196,7 +197,19 @@ export interface SourceMeta {
   title?: string;
   author?: string;
   thumbnail?: string;
+  views?: string;
+  likes?: string;
+  duration?: number;
+  rawVideoUrl?: string;
   note?: string;
+  analytics?: {
+    stage?: { label: string; color: string };
+    probability?: number;
+    retentionScore?: number;
+    velocity?: string;
+    verdict?: string;
+    drivers?: { label: string; value: number; detail: string }[];
+  };
 }
 
 export interface Project {

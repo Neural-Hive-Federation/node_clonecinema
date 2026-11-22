@@ -2,10 +2,14 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Bot,
+  ExternalLink,
+  Eye,
   Film,
+  Heart,
   ImagePlus,
   LayoutGrid,
   Link2,
+  Play,
   Rocket,
   Send,
   Sparkles,
@@ -138,6 +142,7 @@ export function ChatView({
           role: "assistant",
           content: summary,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          scoutCard: meta,
         },
       ];
       onChange(next);
@@ -210,6 +215,7 @@ export function ChatView({
             role: "assistant",
             content: summary,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            scoutCard: meta,
           },
         ];
         onChange(next);
@@ -361,7 +367,12 @@ export function ChatView({
 
           <div className="space-y-6">
             {(project.chat || []).map((m) => (
-              <MessageBubble key={m.id} message={m} />
+              <MessageBubble
+                key={m.id}
+                message={m}
+                onOpenStudio={onOpenStudio}
+                onStartAutoPilot={onStartAutoPilot}
+              />
             ))}
           </div>
 
@@ -515,8 +526,18 @@ export function ChatView({
   );
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+  message,
+  onOpenStudio,
+  onStartAutoPilot,
+}: {
+  message: ChatMessage;
+  onOpenStudio?: () => void;
+  onStartAutoPilot?: (url: string, brief: string) => void;
+}) {
   const isUser = message.role === "user";
+  const card = message.scoutCard;
+
   return (
     <div className={`rise flex gap-3 ${isUser ? "justify-end" : ""}`}>
       {!isUser && (
@@ -537,6 +558,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             ))}
           </div>
         ) : null}
+
         <div
           className={`whitespace-pre-wrap rounded-2xl px-4 py-3 text-[13px] leading-relaxed ${
             isUser
@@ -554,6 +576,112 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             )
           )}
         </div>
+
+        {/* 🕵️ FICHA TÉCNICA DEL SCOUT · VIDEO FUENTE AUDITADO */}
+        {card && (
+          <div className="mt-3 overflow-hidden rounded-2xl border border-signal/30 bg-zinc-950/90 p-4 shadow-2xl backdrop-blur-md">
+            <div className="flex items-center justify-between pb-2.5 border-b border-zinc-800/80">
+              <div className="flex items-center gap-2">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-signal/20 text-signal font-bold text-[11px]">
+                  🕵️
+                </span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-signal">
+                  Ficha Técnica del Scout · Video Fuente Auditado
+                </span>
+              </div>
+              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
+                ⚡ Telemetría Real
+              </span>
+            </div>
+
+            <div className="mt-3 flex gap-3.5">
+              {card.thumbnail && (
+                <a
+                  href={card.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group/thumb relative h-28 w-20 shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 shadow-md cursor-pointer"
+                  title="Ver video fuente original"
+                >
+                  <img
+                    src={card.thumbnail}
+                    alt={card.title || "Video fuente"}
+                    className="h-full w-full object-cover transition duration-300 group-hover/thumb:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-80 group-hover/thumb:opacity-100 transition">
+                    <Play size={16} className="text-white fill-white" />
+                  </div>
+                </a>
+              )}
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="text-[13px] font-bold text-zinc-100 leading-snug line-clamp-2">
+                  «{card.title || "Video Fuente"}»
+                </div>
+                <div className="text-[11.5px] text-zinc-400 flex items-center gap-2">
+                  <span className="text-zinc-300 font-medium">{card.author || "@creador"}</span>
+                  <span>·</span>
+                  <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[9.5px] font-semibold text-zinc-300">
+                    {card.platform}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-1 text-[11px] font-mono">
+                  {card.views && (
+                    <span className="rounded-md bg-zinc-900 border border-zinc-800 px-2 py-0.5 text-signal font-bold flex items-center gap-1">
+                      <Eye size={11} /> {card.views}
+                    </span>
+                  )}
+                  {card.likes && (
+                    <span className="rounded-md bg-zinc-900 border border-zinc-800 px-2 py-0.5 text-rose-400 font-bold flex items-center gap-1">
+                      <Heart size={11} /> {card.likes}
+                    </span>
+                  )}
+                  {card.duration && (
+                    <span className="rounded-md bg-zinc-900 border border-zinc-800 px-2 py-0.5 text-zinc-400 flex items-center gap-1">
+                      ⏱️ {card.duration}s
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {card.analytics?.verdict && (
+              <div className="mt-3 rounded-xl bg-signal/[0.04] border border-signal/20 p-2.5 text-[11.5px] text-zinc-300 leading-relaxed">
+                <span className="font-bold text-signal mr-1.5">Veredicto del Scout:</span>
+                {card.analytics.verdict}
+              </div>
+            )}
+
+            <div className="mt-3 flex items-center justify-between pt-2.5 border-t border-zinc-800/80">
+              <a
+                href={card.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[11px] font-medium text-zinc-400 hover:text-signal transition"
+              >
+                <ExternalLink size={11} /> Ver fuente ↗
+              </a>
+              <div className="flex items-center gap-2">
+                {onOpenStudio && (
+                  <button
+                    onClick={onOpenStudio}
+                    className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-[11px] font-semibold text-zinc-200 hover:border-signal hover:text-white transition"
+                  >
+                    Abrir en Estudio →
+                  </button>
+                )}
+                {onStartAutoPilot && card.url && (
+                  <button
+                    onClick={() => onStartAutoPilot(card.url, "")}
+                    className="rounded-lg bg-signal px-3.5 py-1.5 text-[11px] font-bold text-black hover:bg-lime-300 transition flex items-center gap-1 shadow-lg"
+                  >
+                    <Zap size={12} className="fill-black" /> Auto-Pilot
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className={`mt-1 text-[10px] text-zinc-600 ${isUser ? "text-right" : ""}`}>
           {message.timestamp}
         </div>

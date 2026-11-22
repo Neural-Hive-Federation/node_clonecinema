@@ -1,5 +1,5 @@
 import React from "react";
-import { ArrowRight, Bot, Repeat2, Check } from "lucide-react";
+import { ArrowRight, Bot, Repeat2, Check, ExternalLink } from "lucide-react";
 import type { Project, ProjectUpdater } from "../../types";
 import { Field, Section } from "../ui";
 import { MODE_LABEL } from "../../lib/project";
@@ -263,19 +263,49 @@ export function ScriptTab({
           </Section>
         )}
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-4">
-          <div className="flex items-center gap-2 text-zinc-400">
-            <Bot size={13} />
-            <span className="text-[11px] font-medium">Origen del proyecto</span>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
+          <div className="flex items-center justify-between text-zinc-400">
+            <div className="flex items-center gap-2">
+              <Bot size={13} className="text-signal" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-300">Ficha del Video Fuente</span>
+            </div>
+            {project.sourceMeta?.url && (
+              <a
+                href={project.sourceMeta.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-[10.5px] text-signal hover:underline"
+              >
+                <ExternalLink size={11} /> Ver original ↗
+              </a>
+            )}
           </div>
-          {project.sourceMeta ? (
-            <div className="mt-2 space-y-1 text-[11px] text-zinc-500">
-              <div className="truncate text-zinc-300">
-                {project.sourceMeta.platform}
-                {project.sourceMeta.title ? ` — ${project.sourceMeta.title}` : ""}
+          {project.sourceMeta && (project.sourceMeta.title || project.sourceMeta.platform) ? (
+            <div className="mt-3 flex gap-3">
+              {project.sourceMeta.thumbnail && (
+                <img
+                  src={project.sourceMeta.thumbnail}
+                  alt="Carátula fuente"
+                  className="h-20 w-16 shrink-0 rounded-lg border border-zinc-800 object-cover"
+                />
+              )}
+              <div className="min-w-0 flex-1 space-y-1 text-[11px]">
+                <div className="font-semibold text-zinc-200 line-clamp-2">
+                  {project.sourceMeta.title || "Video fuente"}
+                </div>
+                <div className="text-zinc-400">
+                  {project.sourceMeta.author || "@creador"} · <span className="text-zinc-500">{project.sourceMeta.platform}</span>
+                </div>
+                {(project.sourceMeta.views || project.sourceMeta.likes) && (
+                  <div className="flex items-center gap-2 text-zinc-400 font-mono text-[10.5px] pt-1">
+                    {project.sourceMeta.views && <span className="text-signal">👁️ {project.sourceMeta.views}</span>}
+                    {project.sourceMeta.likes && <span className="text-rose-400">❤️ {project.sourceMeta.likes}</span>}
+                  </div>
+                )}
+                {project.sourceMeta.note && (
+                  <p className="text-[10px] text-zinc-500 pt-1 leading-relaxed">{project.sourceMeta.note}</p>
+                )}
               </div>
-              {project.sourceMeta.author && <div>{project.sourceMeta.author}</div>}
-              <div className="leading-relaxed text-zinc-600">{project.sourceMeta.note}</div>
             </div>
           ) : (
             <p className="mt-2 text-[11px] text-zinc-600">
