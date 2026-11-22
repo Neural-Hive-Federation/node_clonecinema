@@ -187,6 +187,7 @@ export interface PublishKit {
   platforms: { platform: string; copy: string; hook: string }[];
   coverPrompt: string;
   coverUrl?: string;
+  masterVideoUrl?: string;
 }
 
 export interface SourceMeta {

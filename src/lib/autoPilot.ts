@@ -220,7 +220,7 @@ export async function runFullAutoPilot(
 
         try {
           const refs = currentProject.characters[0]?.avatarUrl
-            ? [{ url: currentProject.characters[0].avatarUrl, weight: 0.85 }]
+            ? { character: currentProject.characters[0].avatarUrl }
             : undefined;
 
           const imgUrl = await generateImage(shot.imagePrompt, currentProject.format, refs);
