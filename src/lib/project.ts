@@ -21,6 +21,7 @@ export function createEmptyProject(mode: Project["mode"] = "clone"): Project {
     brief: "",
     sourceUrl: "",
     sourceMeta: {
+      url: "",
       platform: "",
       title: "",
       author: "",

@@ -31,14 +31,16 @@ export function Section({
 export function Field({
   label,
   hint,
+  className = "",
   children,
 }: {
   label: string;
   hint?: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <label className="block">
+    <label className={`block ${className}`}>
       <span className="label">{label}</span>
       <div className="mt-1.5">{children}</div>
       {hint && <span className="mt-1 block text-[11px] text-zinc-600">{hint}</span>}
@@ -69,10 +71,10 @@ export function EmptyState({
   );
 }
 
-export function Spinner({ size = 14 }: { size?: number }) {
+export function Spinner({ size = 14, className = "" }: { size?: number; className?: string }) {
   return (
     <span
-      className="inline-block animate-spin rounded-full border-2 border-zinc-700 border-t-zinc-300"
+      className={`inline-block animate-spin rounded-full border-2 border-zinc-700 border-t-zinc-300 ${className}`}
       style={{ width: size, height: size }}
     />
   );

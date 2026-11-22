@@ -173,6 +173,7 @@ export async function generateImageVariations(
 ): Promise<string[]> {
   const data = await post<{
     success: boolean;
+    jobId?: string;
     imageUrl?: string;
     imageUrls?: string[];
     error?: string;

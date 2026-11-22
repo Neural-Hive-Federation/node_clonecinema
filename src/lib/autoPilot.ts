@@ -418,6 +418,7 @@ export async function runFullAutoPilot(
       const baseCaption = `⚠️ ${currentProject.title}: ${currentProject.logline}`;
       currentProject.publish = {
         caption: baseCaption,
+        coverPrompt: `Cinematic high-contrast viral video cover thumbnail for ${currentProject.title}, intense expression, 8k, dramatic lighting, clean text safe zone`,
         hashtags: ["#CloneCinema", "#ViralVideo", "#InteligenciaArtificial", "#FYP", "#Trending"],
         platforms: [
           {
