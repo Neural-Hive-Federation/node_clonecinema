@@ -388,11 +388,6 @@ function buildTransmutedPlan(input: {
 }
 
 async function handleMineFrames(req: any, res: any) {
-  const { url, projectId, duration } = req.body || {};
-  if (!url) {
-    return res.status(400).json({ error: "Falta la URL del video fuente" });
-  }
-
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "https://micjwzatshemmovaneix.supabase.co";
   const supabaseKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -405,11 +400,57 @@ async function handleMineFrames(req: any, res: any) {
     return res.status(500).json({ error: "Supabase no disponible" });
   }
 
-  try {
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
+  // GET: Consultar si los frames ya fueron minados por el Nodo Fénix
+  if (req.method === "GET") {
+    const projectId = req.query?.projectId;
+    const targetUrl = req.query?.url;
+
+    try {
+      const { data, error } = await supabase
+        .from("messages")
+        .select("metadata, created_at")
+        .eq("type", "fenix_frames_result")
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error) {
+        return res.status(500).json({ success: false, error: error.message });
+      }
+
+      const match = data?.find((m: any) => {
+        const meta = m.metadata || {};
+        return (
+          (projectId && meta.projectId === projectId) ||
+          (targetUrl && meta.sourceUrl === targetUrl)
+        );
+      });
+
+      if (match && match.metadata?.frames) {
+        return res.status(200).json({
+          success: true,
+          done: true,
+          totalShots: match.metadata.totalShots,
+          frames: match.metadata.frames,
+        });
+      }
+
+      return res.status(200).json({ success: true, done: false });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err?.message || String(err) });
+    }
+  }
+
+  // POST: Despachar nueva orden de minería al Fénix
+  const { url, projectId, duration } = req.body || {};
+  if (!url) {
+    return res.status(400).json({ error: "Falta la URL del video fuente" });
+  }
+
+  try {
     const { data, error } = await supabase.from("messages").insert({
       sender_id: "CLONECINEMA_AUTOPILOT",
       type: "fenix_frame_mining",
@@ -438,7 +479,7 @@ async function handleMineFrames(req: any, res: any) {
 
 export default async function handler(req: any, res: any) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {

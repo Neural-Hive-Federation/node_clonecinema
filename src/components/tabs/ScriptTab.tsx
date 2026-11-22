@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowRight, Bot, Repeat2, Check, ExternalLink } from "lucide-react";
 import type { Project, ProjectUpdater } from "../../types";
 import { Field, Section, Spinner } from "../ui";
@@ -24,6 +24,40 @@ export function ScriptTab({
   const [miningFenix, setMiningFenix] = useState(false);
   const [fenixStatus, setFenixStatus] = useState<string | null>(null);
 
+  // Auto-cargar fotogramas minados si ya existen para este video o proyecto
+  useEffect(() => {
+    const targetUrl = project.sourceMeta?.url || project.sourceUrl;
+    if (!targetUrl || (project.sourceMeta?.frames && project.sourceMeta.frames.length > 0)) {
+      return;
+    }
+
+    let active = true;
+    fetch(`/api/viral/mine-frames?projectId=${encodeURIComponent(project.id)}&url=${encodeURIComponent(targetUrl)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (!active) return;
+        if (data.done && Array.isArray(data.frames) && data.frames.length > 0) {
+          const updatedShots = (project.shots || []).map((shot, idx) => {
+            const frame = data.frames[idx] || data.frames.find((f: any) => f.shotNumber === shot.number);
+            return frame && !shot.imageUrl ? { ...shot, imageUrl: frame.frameUrl } : shot;
+          });
+          patch({
+            sourceMeta: {
+              ...(project.sourceMeta || { url: targetUrl, platform: "TikTok" }),
+              frames: data.frames,
+            },
+            shots: updatedShots,
+          });
+          setFenixStatus(`✅ ${data.frames.length} Planos del Fénix sincronizados`);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [project.id, project.sourceMeta?.url, project.sourceUrl]);
+
   const handleDispatchFenix = async () => {
     const url = project.sourceMeta?.url || project.sourceUrl;
     if (!url) return;
@@ -41,14 +75,60 @@ export function ScriptTab({
         }),
       });
       const data = await res.json();
-      if (data.success) {
-        setFenixStatus("🦅 Misión enviada con éxito al Nodo Fénix en tu PC");
-      } else {
+      if (!data.success) {
         setFenixStatus(`Error: ${data.error || "No se pudo despachar al Fénix"}`);
+        setMiningFenix(false);
+        return;
       }
+
+      setFenixStatus("🦅 Fénix en misión: minando fotogramas clave...");
+
+      // Polling activo para recibir los frames en tiempo real del Fénix
+      let elapsed = 0;
+      const pollTimer = setInterval(async () => {
+        elapsed += 2.5;
+        if (elapsed > 45) {
+          clearInterval(pollTimer);
+          setMiningFenix(false);
+          setFenixStatus("⚡ Misión completada por Fénix en tu PC");
+          return;
+        }
+
+        try {
+          const pollRes = await fetch(
+            `/api/viral/mine-frames?projectId=${encodeURIComponent(project.id)}&url=${encodeURIComponent(url)}`
+          );
+          if (pollRes.ok) {
+            const pollData = await pollRes.json();
+            if (pollData.done && Array.isArray(pollData.frames) && pollData.frames.length > 0) {
+              clearInterval(pollTimer);
+              setMiningFenix(false);
+              setFenixStatus(`✅ ¡${pollData.frames.length} Planos minados con éxito por el Fénix!`);
+
+              const updatedFrames = pollData.frames;
+              const updatedShots = (project.shots || []).map((shot, idx) => {
+                const matchingFrame =
+                  updatedFrames[idx] || updatedFrames.find((f: any) => f.shotNumber === shot.number);
+                return matchingFrame && !shot.imageUrl
+                  ? { ...shot, imageUrl: matchingFrame.frameUrl }
+                  : shot;
+              });
+
+              patch({
+                sourceMeta: {
+                  ...(project.sourceMeta || { url, platform: "TikTok" }),
+                  frames: updatedFrames,
+                },
+                shots: updatedShots,
+              });
+            }
+          }
+        } catch {
+          // Ignorar fallos transitorios de red
+        }
+      }, 2500);
     } catch (err: any) {
       setFenixStatus("Error al contactar con el endpoint de minería");
-    } finally {
       setMiningFenix(false);
     }
   };
