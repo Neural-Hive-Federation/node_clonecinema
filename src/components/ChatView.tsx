@@ -537,6 +537,28 @@ function MessageBubble({
 }) {
   const isUser = message.role === "user";
   const card = message.scoutCard;
+  const [miningFenix, setMiningFenix] = useState(false);
+  const [fenixSent, setFenixSent] = useState(false);
+
+  const handleDispatchFenix = async (url: string) => {
+    if (!url) return;
+    setMiningFenix(true);
+    try {
+      const res = await fetch("/api/viral/mine-frames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, duration: card?.duration || 60 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFenixSent(true);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setMiningFenix(false);
+    }
+  };
 
   return (
     <div className={`rise flex gap-3 ${isUser ? "justify-end" : ""}`}>
@@ -661,6 +683,17 @@ function MessageBubble({
                 <ExternalLink size={11} /> Ver fuente ↗
               </a>
               <div className="flex items-center gap-2">
+                {card.url && (
+                  <button
+                    onClick={() => handleDispatchFenix(card.url)}
+                    disabled={miningFenix || fenixSent}
+                    title="Enviar al Fénix a minar fotogramas clave"
+                    className="rounded-lg border border-signal/40 bg-signal/15 px-2.5 py-1.5 text-[11px] font-bold text-signal hover:bg-signal hover:text-black transition flex items-center gap-1.5 shadow disabled:opacity-50 cursor-pointer"
+                  >
+                    {miningFenix ? <Spinner size={11} /> : <span>🦅</span>}
+                    <span>{miningFenix ? "Minando..." : fenixSent ? "Fénix Desplegado" : "Minar con Fénix"}</span>
+                  </button>
+                )}
                 {onOpenStudio && (
                   <button
                     onClick={onOpenStudio}

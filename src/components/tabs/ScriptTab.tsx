@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { ArrowRight, Bot, Repeat2, Check, ExternalLink } from "lucide-react";
 import type { Project, ProjectUpdater } from "../../types";
-import { Field, Section } from "../ui";
+import { Field, Section, Spinner } from "../ui";
 import { MODE_LABEL } from "../../lib/project";
 
 const KIND_LABEL: Record<string, string> = {
@@ -21,6 +21,37 @@ export function ScriptTab({
   patch: ProjectUpdater;
 }) {
   const dna = project.viralDNA;
+  const [miningFenix, setMiningFenix] = useState(false);
+  const [fenixStatus, setFenixStatus] = useState<string | null>(null);
+
+  const handleDispatchFenix = async () => {
+    const url = project.sourceMeta?.url || project.sourceUrl;
+    if (!url) return;
+    setMiningFenix(true);
+    setFenixStatus("Desplegando Fénix a tu PC...");
+
+    try {
+      const res = await fetch("/api/viral/mine-frames", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url,
+          projectId: project.id,
+          duration: project.duration || 60,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFenixStatus("🦅 Misión enviada con éxito al Nodo Fénix en tu PC");
+      } else {
+        setFenixStatus(`Error: ${data.error || "No se pudo despachar al Fénix"}`);
+      }
+    } catch (err: any) {
+      setFenixStatus("Error al contactar con el endpoint de minería");
+    } finally {
+      setMiningFenix(false);
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.45fr_1fr]">
@@ -311,6 +342,58 @@ export function ScriptTab({
             <p className="mt-2 text-[11px] text-zinc-600">
               Proyecto original, sin video fuente.
             </p>
+          )}
+
+          {/* BOTÓN DESPACHAR AL FÉNIX */}
+          {(project.sourceMeta?.url || project.sourceUrl) && (
+            <div className="mt-4 pt-3 border-t border-zinc-800/80">
+              <button
+                type="button"
+                onClick={handleDispatchFenix}
+                disabled={miningFenix}
+                className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-signal/15 via-signal/25 to-signal/15 border border-signal/40 py-2.5 px-3 text-[12px] font-bold text-signal hover:bg-signal hover:text-black transition-all shadow-lg shadow-signal/10 disabled:opacity-50 cursor-pointer"
+              >
+                {miningFenix ? <Spinner size={13} /> : <span className="text-base leading-none">🦅</span>}
+                <span>
+                  {miningFenix
+                    ? "Fénix en misión: extrayendo fotogramas..."
+                    : fenixStatus
+                    ? fenixStatus
+                    : "Enviar al Fénix en la misión del video fuente"}
+                </span>
+              </button>
+              {fenixStatus && !miningFenix && (
+                <div className="mt-2 text-center text-[10.5px] font-medium text-emerald-400">
+                  ⚡ Tu Nodo Fénix PC extraerá los fotogramas clave (1 frame = 1 plano) para Wan 2.1.
+                </div>
+              )}
+
+              {/* Riel de fotogramas si ya existen minados */}
+              {project.sourceMeta?.frames && project.sourceMeta.frames.length > 0 && (
+                <div className="mt-3.5 pt-3 border-t border-zinc-800/60">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-300 mb-2">
+                    <span className="flex items-center gap-1.5 text-signal">
+                      <span>🦅</span> Planos extraídos por el Fénix ({project.sourceMeta.frames.length})
+                    </span>
+                    <span className="text-[10px] text-zinc-500 font-mono">1 plano / ~4.5s</span>
+                  </div>
+                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+                    {project.sourceMeta.frames.map((f, idx) => (
+                      <div key={idx} className="relative shrink-0 w-16 group">
+                        <img
+                          src={f.frameUrl}
+                          alt={`Plano ${f.shotNumber}`}
+                          className="h-20 w-16 rounded-lg object-cover border border-zinc-800 group-hover:border-signal transition"
+                        />
+                        <div className="absolute bottom-1 left-1 right-1 rounded bg-black/85 px-1 py-0.5 text-[8.5px] font-mono text-center text-zinc-200">
+                          P{f.shotNumber} ({f.timestampSec}s)
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

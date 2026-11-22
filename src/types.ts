@@ -202,6 +202,7 @@ export interface SourceMeta {
   duration?: number;
   rawVideoUrl?: string;
   note?: string;
+  frames?: { shotNumber: number; timestampSec: number; frameUrl: string; role?: string }[];
   analytics?: {
     stage?: { label: string; color: string };
     probability?: number;
