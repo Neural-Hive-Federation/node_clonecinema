@@ -40,7 +40,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { data, error } = await supabase.table("messages").insert({
+    const { data, error } = await supabase.from("messages").insert({
       sender_id: "CLONECINEMA_AUTOPILOT",
       type: "fenix_frame_mining",
       content: `Misión de minería de frames para video: ${url}`,
