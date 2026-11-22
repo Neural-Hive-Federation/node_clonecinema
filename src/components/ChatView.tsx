@@ -191,12 +191,11 @@ export function ChatView({
         const meta = res.sourceMeta;
         const dna = res.viralDNA;
         const summary = [
-          `Enlace leído: ${meta.platform}${meta.title ? ` — «${meta.title}»` : ""}${
-            meta.author ? ` (${meta.author})` : ""
-          }.`,
-          dna ? `\n**Gancho:** ${dna.hook}\n**Patrón:** ${dna.pattern}` : "",
-          res.plan ? `\n**Plan aplicado:** ${res.plan.shots.length} planos · ${res.plan.duration}s · ${res.plan.format}.` : "",
-          res.plan ? "\nÁbrelo en el estudio para generar los keyframes o ajustar los reemplazos." : "",
+          `🎯 **Video Fuente Analizado por el Scout:** «${meta.title || "Video"}» (${meta.author || "@creador"})`,
+          meta.views ? `📊 **Telemetría Real:** ${meta.views} reproducciones · ${meta.likes || ""} likes · ${meta.platform}` : `Plataforma: ${meta.platform}`,
+          dna ? `\n⚡ **Fórmula de Retención Extraída:**\n- Gancho: ${dna.hook}\n- Patrón: ${dna.pattern}` : "",
+          res.plan ? `\n🚀 **Plan de Transmutación Temática:** ${res.plan.shots.length} planos · ${res.plan.duration}s · Personaje: ${res.plan.characters?.[0]?.name || "Original"}` : "",
+          res.plan ? "\nÁbrelo en el estudio para revisar o pulsa «⚡ Auto-Pilot» para renderizar." : "",
         ]
           .filter(Boolean)
           .join("\n");
