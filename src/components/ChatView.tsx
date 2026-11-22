@@ -132,7 +132,7 @@ export function ChatView({
         .filter(Boolean)
         .join("\n");
 
-      let next = res.plan ? applyPlan(withUser, res.plan) : withUser;
+      let next = res.plan ? applyPlan(withUser, res.plan, { resetMedia: true }) : withUser;
       next.sourceMeta = meta;
       next.sourceUrl = winner.url;
       next.chat = [
@@ -205,7 +205,7 @@ export function ChatView({
           .filter(Boolean)
           .join("\n");
 
-        const next = applyPlan(withUser, res.plan!);
+        const next = applyPlan(withUser, res.plan!, { resetMedia: true });
         next.sourceMeta = meta;
         next.sourceUrl = url;
         next.chat = [
