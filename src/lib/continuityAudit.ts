@@ -36,12 +36,19 @@ const COMMON_LOCATIONS = [
   "montaña", "selva", "cárcel", "celda", "bar", "café", "restaurante", "calle"
 ];
 
-function textContains(haystack: string, needle: string): boolean {
-  if (!haystack || !needle) return false;
-  const cleanHaystack = haystack.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const cleanNeedle = needle.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-  if (cleanNeedle.length < 3) return false;
-  return cleanHaystack.includes(cleanNeedle);
+function matchesEntityWord(text: string, entity: string): boolean {
+  if (!text || !entity) return false;
+  // Si la entidad es "cámara" y aparece como dirección cinematográfica o ángulo, no es un prop
+  if (entity === "cámara") {
+    if (/(?:a\s+cámara|la\s+cámara|en\s+cámara|movimiento|paneo|zoom|encuadre|ángulo)/i.test(text)) {
+      if (!/(?:sostiene|lleva|agarra|muestra|compra)\s+(?:una\s+)?cámara/i.test(text)) {
+        return false;
+      }
+    }
+  }
+  // Evitar falsos positivos por sub-cadenas (ej. "arma" dentro de "armadura" o "armazón")
+  const regex = new RegExp(`\\b${entity}\\b`, "i");
+  return regex.test(text);
 }
 
 export function runContinuityAudit(project: Project): AuditIssue[] {
@@ -207,12 +214,13 @@ export function runContinuityAudit(project: Project): AuditIssue[] {
   const registeredLocNames = locations.map((l) => l.name.toLowerCase());
 
   for (const shot of shots) {
-    const shotText = `${shot.action} ${shot.camera} ${shot.imagePrompt}`.toLowerCase();
+    const shotPropText = `${shot.action} ${shot.imagePrompt}`.toLowerCase();
+    const shotLocText = `${shot.action} ${shot.camera} ${shot.imagePrompt}`.toLowerCase();
 
-    // Detección de props comunes mencionados pero no dados de alta
+    // Detección de props comunes mencionados pero no dados de alta (solo en acción o prompt, no en cámara)
     for (const propName of COMMON_PROPS) {
       if (
-        shotText.includes(propName) &&
+        matchesEntityWord(shotPropText, propName) &&
         !registeredPropNames.some((r) => r.includes(propName) || propName.includes(r))
       ) {
         const capitalProp = propName.charAt(0).toUpperCase() + propName.slice(1);
@@ -250,7 +258,7 @@ export function runContinuityAudit(project: Project): AuditIssue[] {
     // Detección de sets comunes mencionados pero no dados de alta
     for (const locName of COMMON_LOCATIONS) {
       if (
-        shotText.includes(locName) &&
+        matchesEntityWord(shotLocText, locName) &&
         !registeredLocNames.some((r) => r.includes(locName) || locName.includes(r))
       ) {
         const capitalLoc = locName.charAt(0).toUpperCase() + locName.slice(1);

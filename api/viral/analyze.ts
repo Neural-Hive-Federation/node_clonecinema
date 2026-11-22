@@ -190,29 +190,27 @@ function buildTransmutedPlan(input: {
   }
 
   // 2. Transmutación de Escenario y Prop
-  const locationName = isSuperhero
-    ? "Metrópolis Futurista (Neo-Tokio)"
-    : isFruitsOrFood
-    ? "Cocina Gigante de Granito Pulido"
-    : "Plató Ciber-Noticioso Radar";
+  let locationName = "Cámara Cuántica del Oráculo";
+  let locationDesc = "Búnker hipertecnológico subterráneo con monolitos de obsidiana mate, interfaces bioluminiscentes doradas y partículas de datos flotantes.";
+  let propName = "Núcleo Oráculo de Frecuencia Alfa";
+  let propDesc = "Artefacto esférico flotante de aleación negra y filamentos de oro que emite pulsos de luz cuántica y fractales.";
 
-  const locationDesc = isSuperhero
-    ? "Rascacielos monolíticos con anuncios holográficos gigantes bajo una lluvia de neón cian y violeta."
-    : isFruitsOrFood
-    ? "Encimera de mármol negro espejo con luces cálidas de estudio y reflejos macro hiperdetallados."
-    : "Estudio oscuro con paneles LED de datos verticales y suelo pulido negro reflectante.";
-
-  const propName = isSuperhero
-    ? "Núcleo de Fusión Cuántica"
-    : isFruitsOrFood
-    ? "Cuchillo de Chef Centelleante"
-    : "HUD Holográfico de Tendencias";
-
-  const propDesc = isSuperhero
-    ? "Artefacto esférico brillante con anillos orbitales flotantes y destellos de energía azul."
-    : isFruitsOrFood
-    ? "Hoja de acero damasco que refleja la luz con brillo amenazante pero cómico."
-    : "Gráficas tridimensionales translúcidas que flotan con métricas y alertas globales.";
+  if (isSuperhero) {
+    locationName = "Metrópolis Futurista (Neo-Tokio)";
+    locationDesc = "Rascacielos monolíticos con anuncios holográficos gigantes bajo una lluvia de neón cian y violeta.";
+    propName = "Núcleo de Fusión Cuántica";
+    propDesc = "Artefacto esférico brillante con anillos orbitales flotantes y destellos de energía azul.";
+  } else if (isFruitsOrFood) {
+    locationName = "Cocina Gigante de Granito Pulido";
+    locationDesc = "Encimera de mármol negro espejo con luces cálidas de iluminación macro hiperdetallada.";
+    propName = "Cuchillo de Chef Centelleante";
+    propDesc = "Hoja de acero damasco que refleja la luz con brillo amenazante pero cómico.";
+  } else if (isAiDrama) {
+    locationName = "Cámara Cuántica del Oráculo";
+    locationDesc = "Búnker hipertecnológico subterráneo con monolitos de obsidiana mate, interfaces bioluminiscentes doradas y partículas de datos flotantes.";
+    propName = "Núcleo Oráculo de Frecuencia Alfa";
+    propDesc = "Artefacto esférico flotante de aleación negra y filamentos de oro que emite pulsos de luz cuántica y fractales.";
+  }
 
   // 3. Cadencia de Planos con Transmutación
   const shotBeats = [
@@ -234,8 +232,8 @@ function buildTransmutedPlan(input: {
       num: 2,
       title: "La Ruptura de Patrón",
       secs: Math.max(3, Math.round(duration * 0.25)),
-      camera: "Paneo lateral dinámico con cámara en mano y tracking rápido",
-      action: `${charName} señala la catástrofe en tiempo real mientras el entorno revela la escala de la amenaza.`,
+      camera: "Paneo lateral dinámico con encuadre móvil y tracking cinemático",
+      action: `${charName} señala la catástrofe en tiempo real mientras ${locationName} revela la escala de la amenaza.`,
       vo: isSuperhero
         ? "Los radares se apagaron de golpe. Algo masivo acaba de entrar en nuestra atmósfera."
         : isFruitsOrFood
@@ -265,7 +263,7 @@ function buildTransmutedPlan(input: {
       camera: "Plano medio frontal con corte rítmico y micro pull-back",
       action: `${charName} sonríe con audacia y apunta hacia abajo invitando a comentar antes del reinicio en bucle.`,
       vo: "¿Ya te diste cuenta de lo que pasó? Comenta antes de que lo censuren.",
-      img: `Confident triumphant shot of ${charName} pointing directly down at viewer, crisp sharp studio lighting, memorable viral thumbnail composition`,
+      img: `Confident triumphant shot of ${charName} pointing directly down at viewer, crisp sharp cinematic lighting, memorable viral thumbnail composition`,
       vid: `Micro pull back camera move as ${charName} gestures directly at viewer with confident smirk, seamless loop transition`,
     },
   ];
@@ -281,6 +279,9 @@ function buildTransmutedPlan(input: {
     music: "Pulso rítmico de tensión continua",
     imagePrompt: b.img,
     videoPrompt: b.vid,
+    characterId: "char-transmuted",
+    locationId: "loc-transmuted",
+    propId: "prop-transmuted",
   }));
 
   return {

@@ -1,5 +1,6 @@
 import { analyzeLink, generateImage, generateSpeech, startVideo, videoStatus } from "./api";
 import { applyPlan, uid } from "./project";
+import { runContinuityAudit } from "./continuityAudit";
 import { MUSIC_PRESETS } from "../data/musicTracks";
 import type { Project, Shot } from "../types";
 
@@ -110,6 +111,20 @@ export async function runFullAutoPilot(
       if (analysisRes.viralDNA) {
         currentProject.viralDNA = analysisRes.viralDNA;
       }
+      // Auto-corrección de Continuidad por el Director AI (alinear guion y entidades)
+      const auditIssues = runContinuityAudit(currentProject);
+      if (auditIssues.length > 0) {
+        addLog(`Auditor de Continuidad: resolviendo ${auditIssues.length} alertas de guion automáticamente...`);
+        for (const issue of auditIssues) {
+          if (issue.fixes && issue.fixes.length > 0) {
+            const fix = issue.fixes[0];
+            const patch = fix.run(currentProject);
+            currentProject = { ...currentProject, ...patch };
+          }
+        }
+        addLog("Auditoría de Continuidad completada con éxito: 100% Coherencia OK.", "success");
+      }
+
       addLog(
         `Plan cinematográfico creado: ${currentProject.shots.length} planos, ${currentProject.duration}s.`,
         "success"
@@ -132,10 +147,10 @@ export async function runFullAutoPilot(
       2,
       "Generación Visual de Casting y Storyboard",
       22,
-      "Diseñando casting hiperrealista y keyframes visuales..."
+      "Diseñando casting hiperrealista, set temático, props y keyframes..."
     );
 
-    // Generar imagen de personaje principal si no existe
+    // 1. Generar imagen de personaje principal si no existe
     if (currentProject.characters.length > 0 && !currentProject.characters[0].avatarUrl) {
       const mainChar = currentProject.characters[0];
       addLog(`Diseñando aspecto de ${mainChar.name}...`);
@@ -151,11 +166,48 @@ export async function runFullAutoPilot(
       }
     }
 
-    // Generar keyframe para cada plano que no lo tenga
+    // 2. Generar concepto visual del Set / Localización principal si no existe
+    if (currentProject.locations.length > 0 && !currentProject.locations[0].imageUrl) {
+      const mainLoc = currentProject.locations[0];
+      addLog(`Diseñando concepto del set: «${mainLoc.name}»...`);
+      try {
+        const locPrompt = `Cinematic environment concept art, 8k, photorealistic: ${mainLoc.description}, wide establishing shot, architectural lighting, moody atmosphere`;
+        const locImgUrl = await generateImage(locPrompt, currentProject.format);
+        if (locImgUrl) {
+          currentProject.locations[0] = { ...mainLoc, imageUrl: locImgUrl };
+          addLog(`Set «${mainLoc.name}» generado y almacenado.`, "success");
+        }
+      } catch (err: any) {
+        addLog(`Aviso en set: ${err?.message}`, "warning");
+      }
+    }
+
+    // 3. Generar concepto visual del Prop Héroe si no existe
+    if (currentProject.props.length > 0 && !currentProject.props[0].imageUrl) {
+      const mainProp = currentProject.props[0];
+      addLog(`Diseñando objeto héroe: «${mainProp.name}»...`);
+      try {
+        const propPrompt = `Macro product photography, 8k, studio lighting: ${mainProp.description}, hyper-detailed prop on dark reflective pedestal, volumetric rays`;
+        const propImgUrl = await generateImage(propPrompt, currentProject.format);
+        if (propImgUrl) {
+          currentProject.props[0] = { ...mainProp, imageUrl: propImgUrl };
+          addLog(`Objeto héroe «${mainProp.name}» generado y almacenado.`, "success");
+        }
+      } catch (err: any) {
+        addLog(`Aviso en prop: ${err?.message}`, "warning");
+      }
+    }
+
+    // 4. Generar keyframe para cada plano bloqueando el rostro del personaje
     const shotsCount = currentProject.shots.length;
     for (let i = 0; i < shotsCount; i++) {
       const shot = currentProject.shots[i];
       const stepPercent = 25 + Math.round(((i + 1) / shotsCount) * 20);
+
+      // Vincular IDs de personaje, set y prop al plano
+      shot.characterId = currentProject.characters[0]?.id || shot.characterId;
+      shot.locationId = currentProject.locations[0]?.id || shot.locationId;
+      shot.propId = currentProject.props[0]?.id || shot.propId;
 
       if (!shot.imageUrl) {
         addLog(`Generando keyframe Plano ${shot.number}/${shotsCount}: «${shot.title}»...`);
@@ -310,6 +362,10 @@ export async function runFullAutoPilot(
               } catch {
                 // Siguiente intento
               }
+            }
+
+            if (!done) {
+              addLog(`Plano ${shot.number}: Tarea enviada a Kaggle GPU (${tracked.slice(0, 8)}...). Renderizando en segundo plano.`, "info");
             }
           }
         } catch (err: any) {

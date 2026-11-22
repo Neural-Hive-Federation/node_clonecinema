@@ -145,6 +145,29 @@ export default async function handler(req: any, res: any) {
 
         if (kStatus === "COMPLETE") {
           const output = await getKaggleKernelOutput({ userName, kernelSlug });
+
+          // Validar que el resultado pertenezca a ESTE trabajo y no a una sesión previa en caché
+          const resultFile = output.files?.find((f) => f.fileName === "result.json");
+          if (resultFile && resultFile.url) {
+            try {
+              const rjRes = await fetch(resultFile.url);
+              if (rjRes.ok) {
+                const rjData = (await rjRes.json()) as any;
+                if (rjData.job_id && rjData.job_id !== job.id) {
+                  // Los archivos en Kaggle pertenecen a un trabajo previo; el trabajo actual aún está en ejecución
+                  return res.status(200).json({
+                    success: true,
+                    jobId: job.id,
+                    status: "running",
+                    done: false,
+                  });
+                }
+              }
+            } catch (rjErr) {
+              console.warn("[jobs/[id]] Error verificando result.json:", rjErr);
+            }
+          }
+
           const isVideo = job.kind === "video";
           const mediaFile = isVideo
             ? output.files?.find((f) => f.fileName === "output_video.mp4") ||
