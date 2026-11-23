@@ -205,7 +205,7 @@ Analiza este fotograma #{shot_num} de {total_shots} (segundo {timestamp_sec:.1f}
 Responde en formato JSON estrictamente válido con estos campos:
 {{
   "ocr_text": "Copia exacta de subtítulos, carteles o texto visible en pantalla (o vacío si no hay)",
-  "characters": "Descripción de personajes visibles (edad aprox, emoción, vestuario)",
+  "characters": "Descripción de personajes visibles (edad aprox, emoción, vestuario). Si detectas personajes protegidos por copyright (Marvel, DC, etc.), descríbelos como su sinónimo arquetípico original (ej: Dios del Rayo en vez de Thor, Hombre con Armadura en vez de Iron Man)",
   "scene_description": "Qué acción ocurre en este fotograma con alto detalle visual",
   "camera_motion": "Movimiento de cámara cinemático para Wan 2.1 (ej: Tracking lateral suave, Crash zoom, Dolly in)",
   "voiceover_draft": "Línea de narración o diálogo potente en español acorde a la emoción del plano",

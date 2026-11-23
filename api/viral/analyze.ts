@@ -615,6 +615,16 @@ El agente Fénix ha extraído una secuencia exacta de ${frames.length} fotograma
 - Estilo: ${style}
 - Brief / Objetivo: "${brief || "Reconstruir la cadencia rítmica exacta transmutando los elementos para Wan 2.1"}"
 
+LEY FUNDAMENTAL ANTI-COPYRIGHT (EL PRINCIPIO DEL SINÓNIMO SEMÁNTICO):
+- El video clon NUNCA debe infringir marcas registradas, nombres de franquicias o propiedad intelectual de terceros (Marvel, DC, Disney, Anime, creadores específicos).
+- El video fuente es un SINÓNIMO del video clon y viceversa:
+  * Si el original contiene a Thor -> El clon debe crear "El Dios del Rayo / Vindicador de las Tormentas".
+  * Si el original contiene a Iron Man -> El clon debe crear "El Centinela Acorazado / Magnate con Exoesqueleto de Titanio".
+  * Si el original contiene a Spider-Man -> El clon debe crear "El Acróbata Arácnido de la Metrópolis".
+  * Si el original contiene a Superman -> El clon debe crear "El Guardián Solar con Capa Gravitatoria".
+  * Si el original es de un creador/marca protegida -> Transmútalo a una identidad visual y nombre completamente original que conserve el mismo arquetipo dramático.
+- Personajes, nombres, diálogos e imagePrompts/videoPrompts deben ser 100% INVENTADOS, ORIGINALES Y APTOS PARA MONETIZACIÓN.
+
 Fotogramas del Fénix a secuenciar:
 ${frames.map((f: any, i: number) => `Plano ${f.shotNumber || i + 1} (segundo ${f.timestampSec}s)`).join("\n")}
 
@@ -1017,7 +1027,16 @@ Analiza este video viral detectado por el Scout Inspector:
 - Duración objetivo: ${duration}s · Formato: ${format}
 
 Reglas estrictas de Transmutación Temática (Anti-Copyright):
-1. Transmuta el concepto: crea un personaje original inolvidable, con un escenario cinemático coherente y un prop/objeto héroe.
+LEY FUNDAMENTAL ANTI-COPYRIGHT (EL PRINCIPIO DEL SINÓNIMO SEMÁNTICO):
+- El video clon NUNCA debe infringir marcas registradas, nombres de franquicias o propiedad intelectual de terceros (Marvel, DC, Disney, Anime, creadores específicos).
+- El video fuente es un SINÓNIMO del video clon y viceversa:
+  * Si el original contiene a Thor -> El clon debe crear "El Dios del Rayo / Vindicador de las Tormentas".
+  * Si el original contiene a Iron Man -> El clon debe crear "El Centinela Acorazado / Magnate con Exoesqueleto de Titanio".
+  * Si el original contiene a Spider-Man -> El clon debe crear "El Acróbata Arácnido de la Metrópolis".
+  * Si el original contiene a Superman -> El clon debe crear "El Guardián Solar con Capa Gravitatoria".
+  * Si el original es de un creador/marca protegida -> Transmútalo a una identidad visual y nombre completamente original que conserve el mismo arquetipo dramático.
+- Personajes, nombres, diálogos e imagePrompts/videoPrompts deben ser 100% INVENTADOS, ORIGINALES Y APTOS PARA MONETIZACIÓN.
+1. Transmuta el concepto en su SINÓNIMO CREATIVO ORIGINAL: crea personajes originales inolvidables con identidad propia, escenario cinemático coherente y objeto héroe.
 2. Diseña exactamente 4 planos secuenciales con ritmo cinemático (Plano 1: Gancho imposible 0-2s, Plano 2: Ruptura de expectativa, Plano 3: Escalada de tensión, Plano 4: Cierre en bucle).
 3. Para cada plano genera: number (1-4), title, seconds, camera (movimiento y lente), action, voiceover (guion en español de impacto), imagePrompt (prompt fotorrealista 8K en inglés), videoPrompt (prompt de movimiento para Wan 2.1 en inglés).
 4. Devuelve ÚNICAMENTE un objeto JSON válido con este formato:
