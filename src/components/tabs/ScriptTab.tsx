@@ -38,6 +38,7 @@ export function ScriptTab({
   const [fenixStatus, setFenixStatus] = useState<string | null>(null);
   const [viewingFrameIdx, setViewingFrameIdx] = useState<number | null>(null);
   const [isPlayingSlideshow, setIsPlayingSlideshow] = useState(false);
+  const [selectedShotIndex, setSelectedShotIndex] = useState<number | null>(null);
 
   const frames = project.sourceMeta?.frames || [];
 
@@ -50,7 +51,7 @@ export function ScriptTab({
     return () => clearInterval(timer);
   }, [isPlayingSlideshow, viewingFrameIdx, frames.length]);
 
-  // Navegación por teclado (Flechas, Espacio, Escape)
+  // Navegación por teclado del Slideshow (Flechas, Espacio, Escape)
   useEffect(() => {
     if (viewingFrameIdx === null) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -69,6 +70,24 @@ export function ScriptTab({
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [viewingFrameIdx, frames.length]);
+
+  // Navegación por teclado de la Ficha Expandida de Plano
+  useEffect(() => {
+    if (selectedShotIndex === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSelectedShotIndex(null);
+      } else if (e.key === "ArrowLeft") {
+        const total = (project.shots || []).length;
+        if (total > 0) setSelectedShotIndex((prev) => (prev === null ? 0 : (prev - 1 + total) % total));
+      } else if (e.key === "ArrowRight") {
+        const total = (project.shots || []).length;
+        if (total > 0) setSelectedShotIndex((prev) => (prev === null ? 0 : (prev + 1) % total));
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedShotIndex, project.shots?.length]);
 
   const handleReconstructWithFenix = async (framesToUse: any[]) => {
     if (!framesToUse || framesToUse.length === 0) return;
@@ -330,47 +349,48 @@ export function ScriptTab({
               Pide un plan en el chat para ver el guion aquí.
             </p>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {(project.shots || []).map((shot) => (
+            <div className="flex gap-2.5 overflow-x-auto pb-2.5 pt-1 scrollbar-thin">
+              {(project.shots || []).map((shot, idx) => (
                 <div
-                  key={shot.id}
-                  className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3 hover:border-zinc-700/80 transition flex flex-col justify-between"
+                  key={shot.id || idx}
+                  onClick={() => setSelectedShotIndex(idx)}
+                  className="w-48 shrink-0 min-h-[148px] rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-3 hover:border-signal/80 hover:bg-zinc-900/90 transition flex flex-col justify-between cursor-pointer group shadow-sm hover:shadow-signal/5"
+                  title={`Plano ${shot.number}: ${shot.title} · Clic para ver ficha completa`}
                 >
                   <div>
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-zinc-800 font-display text-[10.5px] font-bold text-signal">
+                    <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-zinc-800 font-display text-[10px] font-bold text-signal group-hover:bg-signal group-hover:text-black transition">
                           {shot.number}
                         </span>
-                        <span className="text-[12px] font-semibold text-zinc-100 line-clamp-1">
+                        <span className="text-[11.5px] font-semibold text-zinc-100 line-clamp-1 group-hover:text-signal transition">
                           {shot.title}
                         </span>
                       </div>
-                      <span className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[9.5px] font-mono text-zinc-400 shrink-0">
+                      <span className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[9px] font-mono text-zinc-400 shrink-0">
                         {shot.seconds}s
                       </span>
                     </div>
 
-                    <div className="text-[10px] text-zinc-500 font-mono line-clamp-1 mb-1">
+                    <div className="text-[9.5px] text-zinc-500 font-mono line-clamp-1 mb-1">
                       📷 {shot.camera}
                     </div>
 
-                    <p className="text-[11px] leading-relaxed text-zinc-300 line-clamp-2">
+                    <p className="text-[10.5px] leading-relaxed text-zinc-300 line-clamp-2">
                       {shot.action}
                     </p>
 
                     {shot.voiceover && (
-                      <p className="mt-1.5 text-[10.5px] text-zinc-400 italic line-clamp-2 border-l-2 border-signal/40 pl-2">
+                      <p className="mt-1 text-[10px] text-zinc-400 italic line-clamp-1 border-l-2 border-signal/40 pl-1.5">
                         VO: "{shot.voiceover}"
                       </p>
                     )}
                   </div>
 
-                  {shot.sfx && (
-                    <div className="mt-2 pt-1.5 border-t border-zinc-800/60 text-[9px] text-zinc-500 line-clamp-1 font-mono">
-                      🎵 {shot.sfx} {shot.music ? `— ${shot.music}` : ""}
-                    </div>
-                  )}
+                  <div className="mt-2 pt-1.5 border-t border-zinc-800/60 flex items-center justify-between text-[9px] text-zinc-500 font-mono">
+                    <span className="line-clamp-1">{shot.sfx ? `🎵 ${shot.sfx}` : `Plano ${shot.number}`}</span>
+                    <span className="text-signal opacity-0 group-hover:opacity-100 transition shrink-0 ml-1">Ver ficha ↗</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -537,7 +557,7 @@ export function ScriptTab({
                       rel="noopener noreferrer"
                       className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700/80 border border-zinc-700/80 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-200 transition hover:text-signal shadow-xs cursor-pointer"
                     >
-                      <ExternalLink size={12} className="text-signal" /> Abrir video fuente en TikTok ↗
+                      <ExternalLink size={12} className="text-signal" /> Abrir video fuente original ↗
                     </a>
                   </div>
                 )}
@@ -593,30 +613,70 @@ export function ScriptTab({
                     </button>
                   </div>
 
-                  <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
-                    {project.sourceMeta.frames.map((f, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => {
-                          setViewingFrameIdx(idx);
-                          setIsPlayingSlideshow(false);
-                        }}
-                        className="relative shrink-0 w-16 group cursor-pointer"
-                        title={`Plano ${f.shotNumber} (${f.timestampSec}s) · Clic para ampliar`}
-                      >
-                        <img
-                          src={f.frameUrl}
-                          alt={`Plano ${f.shotNumber}`}
-                          className="h-20 w-16 rounded-lg object-cover border border-zinc-800 group-hover:border-signal group-hover:scale-105 transition"
-                        />
-                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition rounded-lg flex items-center justify-center">
-                          <Maximize2 size={12} className="text-white" />
+                  <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-thin">
+                    {project.sourceMeta.frames.map((f, idx) => {
+                      const matchingShot =
+                        (project.shots || []).find((s) => s.number === f.shotNumber) ||
+                        (project.shots || [])[idx];
+                      return (
+                        <div key={idx} className="shrink-0 w-44 flex flex-col gap-1.5">
+                          {/* Captura de fotograma del Fénix */}
+                          <div
+                            onClick={() => {
+                              setViewingFrameIdx(idx);
+                              setIsPlayingSlideshow(false);
+                            }}
+                            className="relative w-full h-24 rounded-xl overflow-hidden border border-zinc-800 hover:border-signal group cursor-pointer transition shadow-sm"
+                            title={`Fotograma Plano ${f.shotNumber} (${f.timestampSec}s) · Clic para ampliar`}
+                          >
+                            <img
+                              src={f.frameUrl}
+                              alt={`Plano ${f.shotNumber}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                            />
+                            <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                              <Maximize2 size={14} className="text-white" />
+                            </div>
+                            <div className="absolute bottom-1 left-1 right-1 rounded bg-black/85 px-1.5 py-0.5 text-[9px] font-mono text-center text-zinc-200 backdrop-blur-xs">
+                              P{f.shotNumber} ({f.timestampSec}s)
+                            </div>
+                          </div>
+
+                          {/* Tarjeta del plano sincronizada debajo */}
+                          {matchingShot ? (
+                            <div
+                              onClick={() => setSelectedShotIndex(idx)}
+                              className="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-2.5 hover:border-signal/80 hover:bg-zinc-900/90 cursor-pointer transition flex flex-col justify-between min-h-[96px] group shadow-xs"
+                              title={`Ver ficha completa del Plano ${matchingShot.number}`}
+                            >
+                              <div>
+                                <div className="flex items-center justify-between gap-1 mb-1">
+                                  <span className="text-[10px] font-bold text-signal font-mono">
+                                    P{matchingShot.number} · {matchingShot.seconds}s
+                                  </span>
+                                  <span className="text-[9px] text-zinc-500 font-mono group-hover:text-signal transition">
+                                    Ficha ↗
+                                  </span>
+                                </div>
+                                <div className="text-[11px] font-semibold text-zinc-200 line-clamp-1 group-hover:text-signal transition">
+                                  {matchingShot.title}
+                                </div>
+                                <div className="text-[9.5px] text-zinc-500 font-mono line-clamp-1 mt-0.5">
+                                  📷 {matchingShot.camera}
+                                </div>
+                                <p className="text-[10px] text-zinc-400 line-clamp-2 mt-1 leading-snug">
+                                  {matchingShot.action}
+                                </p>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-zinc-800/80 p-2.5 text-center text-[10px] text-zinc-600 min-h-[96px] flex items-center justify-center">
+                              P{f.shotNumber} en generación...
+                            </div>
+                          )}
                         </div>
-                        <div className="absolute bottom-1 left-1 right-1 rounded bg-black/85 px-1 py-0.5 text-[8.5px] font-mono text-center text-zinc-200">
-                          P{f.shotNumber} ({f.timestampSec}s)
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   <button
@@ -754,6 +814,171 @@ export function ScriptTab({
           </div>
         </div>
       )}
+
+      {/* MODAL / FICHA COMPLETA DEL PLANO EXPANDIDO */}
+      {selectedShotIndex !== null && (project.shots || [])[selectedShotIndex] && (() => {
+        const shot = (project.shots || [])[selectedShotIndex];
+        const totalShots = (project.shots || []).length;
+        const matchingFrame = (project.sourceMeta?.frames || []).find((f) => f.shotNumber === shot.number) || (project.sourceMeta?.frames || [])[selectedShotIndex];
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200">
+            <div className="relative max-w-2xl w-full max-h-[92vh] flex flex-col bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
+              {/* Cabecera */}
+              <div className="w-full flex items-center justify-between px-5 py-3.5 border-b border-zinc-800/80 bg-zinc-900/60">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-signal font-display text-xs font-bold text-black">
+                    {shot.number}
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                      <span>Plano {shot.number}: {shot.title}</span>
+                      <span className="rounded bg-zinc-800 px-1.5 py-0.5 text-[10px] font-mono text-signal">
+                        {shot.seconds}s
+                      </span>
+                    </h3>
+                    <p className="text-[10px] font-mono text-zinc-500">
+                      Plano {selectedShotIndex + 1} de {totalShots}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedShotIndex((prev) => (prev === null ? 0 : (prev - 1 + totalShots) % totalShots))}
+                    className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+                    title="Plano anterior"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedShotIndex((prev) => (prev === null ? 0 : (prev + 1) % totalShots))}
+                    className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+                    title="Plano siguiente"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedShotIndex(null)}
+                    className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer ml-1"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Contenido scrolleable */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-4 scrollbar-thin">
+                {(matchingFrame?.frameUrl || shot.imageUrl) && (
+                  <div className="relative w-full rounded-xl overflow-hidden border border-zinc-800 bg-black/60 max-h-60 flex items-center justify-center">
+                    <img
+                      src={matchingFrame?.frameUrl || shot.imageUrl}
+                      alt={`Fotograma Plano ${shot.number}`}
+                      className="max-h-60 w-full object-contain"
+                    />
+                    <div className="absolute top-2 left-2 rounded bg-black/80 px-2 py-0.5 text-[10px] font-mono text-signal border border-signal/30 backdrop-blur-xs">
+                      🦅 Fotograma Wan 2.1 ({matchingFrame?.timestampSec ?? (shot.seconds * selectedShotIndex)}s)
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5">
+                  <div className="flex items-center gap-1.5 text-[10.5px] font-bold text-signal font-mono uppercase tracking-wider mb-1">
+                    <span>📷</span> Cámara & Movimiento Wan 2.1
+                  </div>
+                  <p className="text-[12px] text-zinc-200 font-mono leading-relaxed">
+                    {shot.camera}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5">
+                  <div className="text-[10.5px] font-bold text-zinc-400 font-mono uppercase tracking-wider mb-1">
+                    🎬 Acción en Escena
+                  </div>
+                  <p className="text-[12.5px] leading-relaxed text-zinc-200">
+                    {shot.action}
+                  </p>
+                </div>
+
+                {shot.voiceover && (
+                  <div className="rounded-xl border border-signal/30 bg-signal/[0.04] p-3.5">
+                    <div className="text-[10.5px] font-bold text-signal font-mono uppercase tracking-wider mb-1">
+                      🎙️ Voz en Off / Diálogo (Audio Sync)
+                    </div>
+                    <p className="text-[12.5px] leading-relaxed text-zinc-100 italic">
+                      "{shot.voiceover}"
+                    </p>
+                  </div>
+                )}
+
+                {(shot.sfx || shot.music) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {shot.sfx && (
+                      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
+                        <div className="text-[10px] font-mono text-zinc-500 uppercase">🎵 Efectos de Sonido (SFX)</div>
+                        <p className="text-[11.5px] text-zinc-300 mt-0.5">{shot.sfx}</p>
+                      </div>
+                    )}
+                    {shot.music && (
+                      <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3">
+                        <div className="text-[10px] font-mono text-zinc-500 uppercase">🎼 Banda Sonora / Beat</div>
+                        <p className="text-[11.5px] text-zinc-300 mt-0.5">{shot.music}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {(shot.imagePrompt || shot.videoPrompt) && (
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 space-y-2.5">
+                    <div className="text-[10.5px] font-bold text-zinc-400 font-mono uppercase tracking-wider">
+                      ⚡ Prompts para Wan 2.1 / ComfyUI
+                    </div>
+                    {shot.imagePrompt && (
+                      <div>
+                        <div className="text-[9.5px] text-zinc-500 font-mono">Image Prompt (Keyframe):</div>
+                        <p className="text-[10.5px] text-zinc-300 font-mono bg-black/40 p-2 rounded-lg border border-zinc-800/80 select-all">
+                          {shot.imagePrompt}
+                        </p>
+                      </div>
+                    )}
+                    {shot.videoPrompt && (
+                      <div>
+                        <div className="text-[9.5px] text-zinc-500 font-mono">Video Motion Prompt:</div>
+                        <p className="text-[10.5px] text-zinc-300 font-mono bg-black/40 p-2 rounded-lg border border-zinc-800/80 select-all">
+                          {shot.videoPrompt}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Selector horizontal de planos */}
+              <div className="w-full px-5 py-3 border-t border-zinc-800/80 bg-zinc-900/60 flex items-center justify-between">
+                <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-thin max-w-full">
+                  {(project.shots || []).map((s, i) => (
+                    <button
+                      key={s.id || i}
+                      type="button"
+                      onClick={() => setSelectedShotIndex(i)}
+                      className={`h-7 px-2.5 rounded-lg text-xs font-mono font-bold transition cursor-pointer shrink-0 ${
+                        i === selectedShotIndex
+                          ? "bg-signal text-black"
+                          : "bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700"
+                      }`}
+                    >
+                      P{s.number}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
     </div>
   );
 }
