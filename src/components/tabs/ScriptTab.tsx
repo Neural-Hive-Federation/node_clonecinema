@@ -99,6 +99,7 @@ export function ScriptTab({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          projectId: project.id,
           title: project.title,
           url: project.sourceMeta?.url || project.sourceUrl,
           frames: framesToUse,
