@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { AudioLines, ImageIcon, Layers, MapPin, Maximize2, Package, Plus, Sparkles, Trash2, Upload, UserRound, Volume2, Wand2, X } from "lucide-react";
+import { AudioLines, Check, CheckSquare, ChevronDown, ImageIcon, Layers, ListFilter, MapPin, Maximize2, Package, Plus, Sparkles, Square, Trash2, Upload, UserRound, Volume2, Wand2, X } from "lucide-react";
 import type { Shot, Project, ProjectUpdater } from "../../types";
 import { generateImage, generateSpeech, isPaymentRequired } from "../../lib/api";
 import { uploadImageFile } from "../../lib/imageUpload";
@@ -22,11 +22,31 @@ export function StoryboardTab({
   const [error, setError] = useState<string | null>(null);
   const [bulk, setBulk] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; title: string } | null>(null);
+  const [selectedForBatch, setSelectedForBatch] = useState<string[]>([]);
+  const [showBatchModal, setShowBatchModal] = useState(false);
   const abortBulkRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [useMultiref, setUseMultiref] = useState(true);
   const [lightbox, setLightbox] = useState<{ src: string; title: string; subtitle?: string } | null>(null);
   const { openPaywall, refreshAccount, costs } = useSession();
+
+  const toggleShotSelection = (shotId: string) => {
+    setSelectedForBatch((prev) =>
+      prev.includes(shotId) ? prev.filter((id) => id !== shotId) : [...prev, shotId]
+    );
+  };
+
+  const selectAllShots = () => {
+    setSelectedForBatch((project.shots || []).map((s) => s.id));
+  };
+
+  const selectEmptyShots = () => {
+    setSelectedForBatch((project.shots || []).filter((s) => !s.imageUrl).map((s) => s.id));
+  };
+
+  const clearSelection = () => {
+    setSelectedForBatch([]);
+  };
 
   const selected = (project.shots || []).find((s) => s.id === selectedId) || (project.shots || [])[0];
 
@@ -173,7 +193,7 @@ export function StoryboardTab({
     setLoadingIds([]);
   };
 
-  async function generateAll(force: boolean = false) {
+  async function generateAll(force: boolean = false, customShotIds?: string[]) {
     if (bulk) return;
     abortBulkRef.current = false;
     abortControllerRef.current = new AbortController();
@@ -181,9 +201,14 @@ export function StoryboardTab({
     setBulk(true);
     setError(null);
 
-    const targetShots = force
-      ? (project.shots || [])
-      : (project.shots || []).filter((s) => !s.imageUrl);
+    let targetShots: Shot[] = [];
+    if (customShotIds && customShotIds.length > 0) {
+      targetShots = (project.shots || []).filter((s) => customShotIds.includes(s.id));
+    } else if (force) {
+      targetShots = (project.shots || []);
+    } else {
+      targetShots = (project.shots || []).filter((s) => !s.imageUrl);
+    }
 
     if (targetShots.length === 0) {
       setBulk(false);
@@ -212,8 +237,7 @@ export function StoryboardTab({
           openPaywall(err.message);
           break;
         } else {
-          setError(err?.message || `La generación se detuvo en el plano ${currentShot.number}.`);
-          break;
+          setError(`Aviso en plano ${currentShot.number}: ${err?.message || "Error"}. Continuando con el lote...`);
         }
       } finally {
         setLoadingIds((prev) => prev.filter((id) => id !== currentShot.id));
@@ -261,10 +285,47 @@ export function StoryboardTab({
                 <Plus size={13} className="text-signal" /> Añadir plano
               </button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-[10.5px] text-zinc-500">{costs.image} crédito / keyframe</span>
 
-              {shotsEmpty > 0 && shotsWithImage > 0 ? (
+              {/* Botón Selector de Lote Personalizado */}
+              <button
+                className={`btn btn-ghost text-[11.5px] border flex items-center gap-1.5 transition ${
+                  selectedForBatch.length > 0
+                    ? "border-signal/50 bg-signal/15 text-signal hover:bg-signal/25 font-semibold shadow-xs"
+                    : "border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white"
+                }`}
+                onClick={() => setShowBatchModal(true)}
+                title="Selecciona planos específicos para generar en lote personalizado"
+              >
+                <ListFilter size={13} className={selectedForBatch.length > 0 ? "text-signal" : "text-zinc-400"} />
+                <span>
+                  {selectedForBatch.length > 0 ? `Lote (${selectedForBatch.length} seleccionados)` : "Seleccionar lote"}
+                </span>
+                <ChevronDown size={11} className={selectedForBatch.length > 0 ? "text-signal" : "text-zinc-500"} />
+              </button>
+
+              {/* Si hay selección manual, dar prioridad a la generación de esa selección */}
+              {selectedForBatch.length > 0 ? (
+                <>
+                  <button
+                    className="btn btn-primary text-[11.5px] border border-signal/50 bg-signal/25 text-signal hover:bg-signal hover:text-black font-bold flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
+                    onClick={() => generateAll(true, selectedForBatch)}
+                    disabled={bulk || loadingIds.length > 0}
+                    title={`Generar únicamente los ${selectedForBatch.length} planos seleccionados`}
+                  >
+                    {bulk ? <Spinner size={13} /> : <Sparkles size={13} />}
+                    <span>✨ Generar selección ({selectedForBatch.length})</span>
+                  </button>
+                  <button
+                    className="btn btn-ghost text-[11px] text-zinc-500 hover:text-red-400 px-2 py-1 border border-zinc-800/80 hover:border-red-500/30 rounded-lg transition"
+                    onClick={clearSelection}
+                    title="Deseleccionar todos los planos"
+                  >
+                    <X size={12} /> Desmarcar
+                  </button>
+                </>
+              ) : shotsEmpty > 0 && shotsWithImage > 0 ? (
                 <>
                   <button
                     className="btn btn-ghost text-[11.5px] border border-zinc-800 hover:border-zinc-700"
@@ -353,7 +414,11 @@ export function StoryboardTab({
                   key={shot.id}
                   onClick={() => setSelectedId(shot.id)}
                   className={`group cursor-pointer overflow-hidden rounded-xl border bg-zinc-900/40 transition ${
-                    active ? "border-signal/50 ring-1 ring-signal/30 shadow-lg shadow-signal/5" : "border-zinc-800 hover:border-zinc-700"
+                    selectedForBatch.includes(shot.id)
+                      ? "border-signal ring-2 ring-signal/50 bg-signal/[0.04] shadow-lg shadow-signal/10"
+                      : active
+                      ? "border-signal/50 ring-1 ring-signal/30 shadow-lg shadow-signal/5"
+                      : "border-zinc-800 hover:border-zinc-700"
                   }`}
                 >
                   <div
@@ -426,10 +491,28 @@ export function StoryboardTab({
                         )}
                       </div>
                     )}
-                    <div className="absolute left-2 top-2 flex gap-1 z-10">
-                      <span className="rounded-md bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-200 backdrop-blur">
-                        Plano {shot.number}
-                      </span>
+                    <div className="absolute left-2 top-2 flex items-center gap-1 z-10">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleShotSelection(shot.id);
+                        }}
+                        title={selectedForBatch.includes(shot.id) ? `Quitar Plano ${shot.number} del lote` : `Marcar Plano ${shot.number} para lote`}
+                        className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold backdrop-blur transition border flex items-center gap-1 cursor-pointer ${
+                          selectedForBatch.includes(shot.id)
+                            ? "bg-signal text-black border-signal shadow-sm font-bold"
+                            : "bg-black/75 text-zinc-400 hover:text-white border-zinc-700/60"
+                        }`}
+                      >
+                        {selectedForBatch.includes(shot.id) ? (
+                          <CheckSquare size={11} className="stroke-[2.5]" />
+                        ) : (
+                          <Square size={11} />
+                        )}
+                        <span>{selectedForBatch.includes(shot.id) ? `P${shot.number} ✓` : `P${shot.number}`}</span>
+                      </button>
+
                       <span className="rounded-md bg-black/75 px-1.5 py-0.5 text-[10px] text-zinc-400 backdrop-blur">
                         {shot.seconds}s
                       </span>
@@ -904,6 +987,164 @@ export function StoryboardTab({
           </div>
         )}
       </div>
+
+      {/* Modal de Selección de Lote Personalizado */}
+      {showBatchModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
+            {/* Cabecera */}
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-signal/30 bg-signal/10 text-signal shadow-inner">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-white flex items-center gap-2">
+                    Generación de Lote Personalizado
+                    <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[11px] font-normal text-zinc-400">
+                      {project.shots.length} planos disponibles
+                    </span>
+                  </h3>
+                  <p className="text-[12px] text-zinc-400">
+                    Marca únicamente los planos que deseas enviar a generar con IA sin alterar el resto de tu storyboard.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBatchModal(false)}
+                className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-900 hover:text-white transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Filtros rápidos */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-zinc-900/60 p-2.5 border border-zinc-800/80">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-zinc-400">Filtros rápidos:</span>
+                <button
+                  type="button"
+                  onClick={selectAllShots}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800/80 px-2.5 py-1 text-[11px] font-medium text-zinc-200 hover:border-signal/50 hover:text-white transition cursor-pointer"
+                >
+                  Seleccionar todos ({totalShots})
+                </button>
+                <button
+                  type="button"
+                  onClick={selectEmptyShots}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800/80 px-2.5 py-1 text-[11px] font-medium text-zinc-200 hover:border-signal/50 hover:text-white transition cursor-pointer"
+                >
+                  Solo vacíos ({shotsEmpty})
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="text-[11px] text-zinc-500 hover:text-red-400 transition cursor-pointer px-1"
+                >
+                  Deseleccionar todos
+                </button>
+              </div>
+            </div>
+
+            {/* Cuadrícula de planos con selección individual */}
+            <div className="mt-4 max-h-[360px] overflow-y-auto pr-1 space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {project.shots.map((shot) => {
+                  const isChecked = selectedForBatch.includes(shot.id);
+                  return (
+                    <div
+                      key={shot.id}
+                      onClick={() => toggleShotSelection(shot.id)}
+                      className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border transition cursor-pointer select-none ${
+                        isChecked
+                          ? "border-signal/60 bg-signal/10 ring-1 ring-signal/30"
+                          : "border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900/80"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition ${
+                            isChecked
+                              ? "bg-signal text-black border-signal shadow-sm"
+                              : "border-zinc-700 bg-zinc-800/50 text-transparent"
+                          }`}
+                        >
+                          <Check size={14} className="stroke-[3]" />
+                        </div>
+
+                        {shot.imageUrl && (
+                          <img
+                            src={shot.imageUrl}
+                            alt={shot.title}
+                            className="h-9 w-9 shrink-0 rounded-md object-cover border border-zinc-800"
+                          />
+                        )}
+
+                        <div className="overflow-hidden">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[12px] text-white">Plano {shot.number}</span>
+                            <span className="text-[10px] text-zinc-500">({shot.seconds}s)</span>
+                          </div>
+                          <div className="truncate text-[11px] text-zinc-400">{shot.title}</div>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-[10px]">
+                        {shot.imageUrl ? (
+                          <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-emerald-400 font-medium">
+                            Listo
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-zinc-800 border border-zinc-700 px-2 py-0.5 text-zinc-400">
+                            Vacío
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer con resumen y botón de ejecución */}
+            <div className="mt-5 flex items-center justify-between border-t border-zinc-800 pt-4">
+              <div className="text-[12px] text-zinc-400">
+                <span className="font-bold text-signal text-sm">{selectedForBatch.length}</span>{" "}
+                {selectedForBatch.length === 1 ? "plano seleccionado" : "planos seleccionados"} ·{" "}
+                <span className="text-zinc-300">
+                  {selectedForBatch.length * costs.image} {selectedForBatch.length * costs.image === 1 ? "crédito" : "créditos"} estimados
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBatchModal(false)}
+                  className="btn btn-ghost text-[12px] text-zinc-400 hover:text-white"
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedForBatch.length === 0 || bulk}
+                  onClick={() => {
+                    setShowBatchModal(false);
+                    generateAll(true, selectedForBatch);
+                  }}
+                  className="btn btn-primary text-[12px] border border-signal/50 bg-signal text-black font-bold flex items-center gap-1.5 shadow-lg shadow-signal/20 disabled:opacity-50 cursor-pointer"
+                >
+                  <Sparkles size={14} />
+                  <span>Generar lote ({selectedForBatch.length})</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {lightbox && (
         <ImageLightbox

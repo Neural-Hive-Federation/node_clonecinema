@@ -170,19 +170,42 @@ export default async function handler(req: any, res: any) {
 
           // Validar que el resultado pertenezca a ESTE trabajo y no a una sesión previa en caché
           const resultFile = output.files?.find((f) => f.fileName === "result.json");
+          const jobAgeMs = Date.now() - new Date(job.created_at).getTime();
+
           if (resultFile && resultFile.url) {
             try {
               const rjRes = await fetch(resultFile.url);
               if (rjRes.ok) {
                 const rjData = (await rjRes.json()) as any;
                 if (rjData.job_id && rjData.job_id !== job.id) {
-                  // Los archivos en Kaggle pertenecen a un trabajo previo; el trabajo actual aún está en ejecución
-                  return res.status(200).json({
-                    success: true,
-                    jobId: job.id,
-                    status: "running",
-                    done: false,
-                  });
+                  // Si el trabajo lleva menos de 75 segundos, Kaggle aún puede estar inicializando la nueva sesión
+                  if (jobAgeMs < 75000) {
+                    return res.status(200).json({
+                      success: true,
+                      jobId: job.id,
+                      status: "queued",
+                      done: false,
+                    });
+                  } else {
+                    // Más de 75s y Kaggle reporta COMPLETE con un job_id viejo -> la nueva sesión no corrió o fue rechazada
+                    const staleMsg = "La sesión en Kaggle no inició la nueva tarea o la cola fue rechazada.";
+                    await supabase
+                      .from("ai_jobs")
+                      .update({
+                        status: "error",
+                        error: staleMsg,
+                        updated_at: new Date().toISOString(),
+                      })
+                      .eq("id", job.id);
+
+                    return res.status(200).json({
+                      success: false,
+                      jobId: job.id,
+                      status: "error",
+                      done: true,
+                      error: staleMsg,
+                    });
+                  }
                 }
               }
             } catch (rjErr) {
@@ -299,6 +322,27 @@ export default async function handler(req: any, res: any) {
               videoUrl: isVideo ? finalUrl : undefined,
             });
           }
+
+          // Si kStatus es COMPLETE pero no se encontró ningún archivo multimedia de salida:
+          const failMsg = output.log
+            ? `Kaggle terminó sin generar archivo multimedia: ${output.log.slice(-250).replace(/\n/g, " ")}`
+            : "Kaggle completó la sesión pero no se generó el archivo de imagen de salida.";
+          await supabase
+            .from("ai_jobs")
+            .update({
+              status: "error",
+              error: failMsg,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", job.id);
+
+          return res.status(200).json({
+            success: false,
+            jobId: job.id,
+            status: "error",
+            done: true,
+            error: failMsg,
+          });
         }
 
         if (kStatus === "ERROR" || kStatus === "CANCELLED") {

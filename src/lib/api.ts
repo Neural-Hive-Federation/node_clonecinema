@@ -126,7 +126,7 @@ interface JobStatus {
 }
 
 const POLL_MS = 3000;
-const MAX_WAIT_MS = 40 * 60 * 1000;
+const MAX_WAIT_MS = 6 * 60 * 1000; // 6 minutos en lugar de 40 minutos
 
 export async function waitForJobFull(
   jobId: string,
@@ -153,7 +153,7 @@ export async function waitForJobFull(
     await new Promise((r) => setTimeout(r, POLL_MS));
   }
 
-  throw new Error(`La tarea sigue en cola (${lastStatus || "pendiente"}) tras 40 minutos.`);
+  throw new Error(`La tarea sigue en cola (${lastStatus || "pendiente"}) tras superar el tiempo límite (6 minutos).`);
 }
 
 /** Sondea un job hasta que termina. Devuelve la URL del artefacto. */
