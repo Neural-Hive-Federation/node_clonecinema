@@ -510,20 +510,35 @@ El agente Fénix ha extraído una secuencia exacta de ${frames.length} fotograma
 Fotogramas del Fénix a secuenciar:
 ${frames.map((f: any, i: number) => `Plano ${f.shotNumber || i + 1} (segundo ${f.timestampSec}s)`).join("\n")}
 
-Genera exactamente ${frames.length} planos secuenciales correspondientes a cada fotograma.
-Para cada plano genera:
-- number: número de plano (1 a ${frames.length})
-- title: título del plano breve y cinemático
-- seconds: ${shotSecs}
-- camera: movimiento de cámara y encuadre para Wan 2.1
-- action: descripción de la acción visual
-- voiceover: guion de voz en off en español
-- sfx: efecto sonoro
-- imagePrompt: prompt cinemático fotorrealista en inglés
-- videoPrompt: prompt cinemático en inglés optimizado para Wan 2.1 (movimiento de cámara y sujeto)
+Genera la reestructuración completa del proyecto adaptada a estos ${frames.length} fotogramas:
+1. viralDNA: gancho de retención de 1.5s, patrón de ritmo, beats distribuidos en la duración de ${duration}s, retentionTricks, cta y whyItWorks.
+2. characters: array con 1 personaje protagonista original transmutado (id, name, role, description, color).
+3. locations: array con 1 localización coherente (id, name, description, timeOfDay, color).
+4. props: array con 1 objeto héroe o elemento clave (id, name, description, category, color).
+5. shots: exactamente ${frames.length} planos secuenciales correspondientes a cada fotograma con number (1-${frames.length}), title, seconds (${shotSecs}), camera (movimiento para Wan 2.1), action, voiceover, sfx, imagePrompt, videoPrompt.
 
 Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura:
 {
+  "viralDNA": {
+    "hook": "string",
+    "pattern": "string",
+    "beats": [
+      { "at": "0:00", "label": "string", "why": "string" }
+    ],
+    "retentionTricks": ["string"],
+    "cta": "string",
+    "whyItWorks": "string",
+    "retentionScore": 98
+  },
+  "characters": [
+    { "id": "char-transmuted", "name": "string", "role": "string", "description": "string", "color": "#c8fa5a" }
+  ],
+  "locations": [
+    { "id": "loc-transmuted", "name": "string", "description": "string", "timeOfDay": "string", "color": "#06b6d4" }
+  ],
+  "props": [
+    { "id": "prop-transmuted", "name": "string", "description": "string", "category": "Elemento Héroe", "color": "#eab308" }
+  ],
   "shots": [
     {
       "number": 1,
@@ -571,7 +586,14 @@ Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura:
             };
           });
 
-          return res.status(200).json({ success: true, shots: mappedShots });
+          return res.status(200).json({
+            success: true,
+            shots: mappedShots,
+            viralDNA: parsed.viralDNA || undefined,
+            characters: parsed.characters || undefined,
+            locations: parsed.locations || undefined,
+            props: parsed.props || undefined,
+          });
         }
       }
     } catch (err) {
@@ -579,38 +601,158 @@ Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura:
     }
   }
 
-  // Fallback heurístico sintetizado para los N planos
+  // Fallback heurístico sintetizado para los N planos y el ADN/Reparto
+  const isFood = /patata|frita|comida|receta|cocina|chef|sabor|alimento/i.test(title || "");
+  const isDrama = /drama|novela|purodrama|secreto|amor|pasi[oó]n|herencia/i.test(title || "");
+
+  const fallbackCharacter = isFood
+    ? {
+        id: "char-transmuted",
+        name: "Chef Don Crocante",
+        role: "Maestro Alquimista de Fritura",
+        description: "Chef apasionado con delantal rústico, mirada experta y dominio de técnicas secretas culinarias.",
+        color: "#c8fa5a",
+      }
+    : isDrama
+    ? {
+        id: "char-transmuted",
+        name: "Victoria Falconi",
+        role: "Heredera Enfrentada",
+        description: "Joven de mirada desafiante y elegancia sobria, en el centro de un conflicto familiar insostenible.",
+        color: "#c8fa5a",
+      }
+    : {
+        id: "char-transmuted",
+        name: "Protagonista Transmutado",
+        role: "Héroe Narrativo",
+        description: "Figura magnética de presencia visual cautivadora y emociones intensas a cuadro.",
+        color: "#c8fa5a",
+      };
+
+  const fallbackLocation = isFood
+    ? {
+        id: "loc-transmuted",
+        name: "Templo Culinario de Piedra y Cobre",
+        description: "Cocina rústica de alta gama con sartenes humeantes, luces cálidas volumétricas y atmósfera envolvente.",
+        timeOfDay: "Noche de alta cocina",
+        color: "#06b6d4",
+      }
+    : isDrama
+    ? {
+        id: "loc-transmuted",
+        name: "Mansión Falconi (Salón Principal)",
+        description: "Espacio señorial con ventanales altos bajo tormenta nocturna y luces claroscuro de alta tensión.",
+        timeOfDay: "Medianoche de tormenta",
+        color: "#06b6d4",
+      }
+    : {
+        id: "loc-transmuted",
+        name: "Escenario Cinemático Principal",
+        description: "Entorno hiperrealista con textura rica y contraste fotográfico 8K.",
+        timeOfDay: "Iluminación cinematográfica de estudio",
+        color: "#06b6d4",
+      };
+
+  const fallbackProp = isFood
+    ? {
+        id: "prop-transmuted",
+        name: "Cesta de Patatas Crujientes de Oro",
+        description: "Patatas cortadas a la perfección con dorado ámbar translúcido, cristales de sal y vapor apetitoso.",
+        category: "Elemento Héroe",
+        color: "#eab308",
+      }
+    : isDrama
+    ? {
+        id: "prop-transmuted",
+        name: "Documento Sellado en Lacre Rojo",
+        description: "Carta notarial desgastada con un sello carmesí que contiene la revelación que cambiará todo.",
+        category: "Elemento Héroe",
+        color: "#eab308",
+      }
+    : {
+        id: "prop-transmuted",
+        name: "Elemento Clave Revelador",
+        description: "Objeto central que cataliza la atención visual de la audiencia en los momentos cúspide.",
+        category: "Elemento Héroe",
+        color: "#eab308",
+      };
+
+  const fallbackViralDNA = {
+    hook: isFood
+      ? "«Nos dijeron que esta receta era imposible de recrear en casa. Pero miren esto.» (0-1.5s)"
+      : "«El secreto que mantuvieron oculto durante 20 años acaba de salir a la luz.» (0-1.5s)",
+    pattern: `Gancho de impacto visual (0-2s) → Ruptura de expectativa → Escalada secuencial en ${frames.length} planos continuos → Remate y bucle infinito.`,
+    beats: [
+      { at: "0:00", label: "El Gancho Imposible", why: "Retención total en los primeros 1.5s antes del swipe" },
+      { at: `0:0${Math.min(5, Math.round(shotSecs))}`, label: "La Ruptura de Expectativa", why: "Quiebre de patrón para anclar la curiosidad" },
+      { at: `0:${Math.round(duration * 0.35).toString().padStart(2, "0")}`, label: "La Escalada del Proceso", why: "Desarrollo rítmico continuo manteniendo la dopamina alta" },
+      { at: `0:${Math.round(duration * 0.75).toString().padStart(2, "0")}`, label: "El Punto Cúspide", why: "Momento culminante de alta intensidad visual" },
+      { at: `0:${Math.max(1, duration - 3).toString().padStart(2, "0")}`, label: "El Pago y Cierre en Bucle", why: "Loop continuo que incita a repetir el video automáticamente" },
+    ],
+    retentionTricks: [
+      `Corte dinámico de plano cada ~${shotSecs} segundos para máxima cadencia`,
+      "Subtítulos dinámicos de alto impacto basados en la secuencia del Fénix",
+      "Efecto de sonido de impacto sub-bass en el segundo 0",
+      "Bucle continuo sin costuras entre el último y primer plano",
+    ],
+    cta: isFood
+      ? "¿Quieres la receta secreta completa? Comenta antes de que lo censuren 👇"
+      : "¿De qué lado estás tú? Deja tu comentario antes de la parte 2 👇",
+    whyItWorks: `Estructura comprobada de millones de vistas transmutada a ${frames.length} planos secuenciales para Wan 2.1.`,
+    retentionScore: 98,
+  };
+
   const fallbackShots = frames.map((f: any, idx: number) => {
     const num = idx + 1;
     const isFirst = idx === 0;
     const isLast = idx === frames.length - 1;
     const isClimax = idx === frames.length - 2;
 
-    let title = `Paso ${num}: Desarrollo de la Receta`;
+    let title = `Paso ${num}: Desarrollo Secuencial`;
     let camera = "Plano detalle medio con movimiento lento continuo y lente macro 85mm";
-    let action = `Preparación y manipulación de ingredientes con alta definición y textura crujiente.`;
-    let vo = `Observen la textura en este punto: este es el detalle que nadie te cuenta.`;
+    let action = isFood
+      ? `Preparación y manipulación de ingredientes con alta definición y textura crujiente.`
+      : `Interacción intensa entre personajes donde la tensión dramática escala progresivamente.`;
+    let vo = isFood
+      ? `Observen la textura en este punto: este es el detalle que nadie te cuenta.`
+      : `Y lo que nadie esperaba... estaba a punto de ocurrir en esa misma habitación.`;
 
     if (isFirst) {
       title = "El Gancho Secreto (Hook)";
       camera = "Crash zoom violento a plano macro con iluminación de contraste alto";
-      action = "Presentación explosiva del resultado final ultra apetitoso con vapor saliendo.";
-      vo = "Nos dijeron que esta receta era imposible de recrear en casa. Pero miren esto.";
+      action = isFood
+        ? "Presentación explosiva del resultado final ultra apetitoso con vapor saliendo."
+        : "Primer plano impactante del protagonista con mirada fija y revelación inmediata.";
+      vo = isFood
+        ? "Nos dijeron que esta receta era imposible de recrear en casa. Pero miren esto."
+        : "Nos advirtieron que no abriéramos esa puerta. Pero ya era demasiado tarde.";
     } else if (idx === 1) {
-      title = "La Revelación del Ingrediente Base";
+      title = "La Revelación del Elemento Base";
       camera = "Paneo orbital suave descendente a 45 grados";
-      action = "Corte preciso y limpio de las patatas en tiras perfectamente uniformes.";
-      vo = "El primer secreto no está en el aceite, está en cómo cortas y secas cada porción.";
+      action = isFood
+        ? "Corte preciso y limpio de las patatas en tiras perfectamente uniformes."
+        : "El detonante del conflicto queda expuesto ante la mirada atónita de los presentes.";
+      vo = isFood
+        ? "El primer secreto no está en el aceite, está en cómo cortas y secas cada porción."
+        : "Ese fue el instante exacto en que todo lo que creíamos seguro se derrumbó.";
     } else if (isClimax) {
-      title = "El Punto de Fritura Dorado Perfecto";
+      title = "El Punto Dorado y Clímax";
       camera = "Cámara lenta a 120fps con burbujeo volumétrico y vapor dorado";
-      action = "Inmersión en aceite burbujeante logrando un dorado ámbar cristalino e irresistible.";
-      vo = "Exactamente a esta temperatura ocurre la magia: crujiente por fuera, suave por dentro.";
+      action = isFood
+        ? "Inmersión en aceite burbujeante logrando un dorado ámbar cristalino e irresistible."
+        : "Confrontación decisiva donde la verdad se expresa con total crudeza y emoción.";
+      vo = isFood
+        ? "Exactamente a esta temperatura ocurre la magia: crujiente por fuera, suave por dentro."
+        : "Y la decisión ya estaba tomada: no había vuelta atrás para ninguno de los dos.";
     } else if (isLast) {
       title = "El Cierre Crujiente y Bucle";
       camera = "Primer plano frontal con micro pull-back y mordisco con audio ASMR";
-      action = "Rotura de la patata crujiente en dos revelando el interior humeante y perfecto.";
-      vo = "¿Escuchaste ese sonido? Comenta si quieres la especia secreta antes de que se agote.";
+      action = isFood
+        ? "Rotura de la patata crujiente en dos revelando el interior humeante y perfecto."
+        : "Mirada final directa al lente antes de que la pantalla corte justo en el inicio.";
+      vo = isFood
+        ? "¿Escuchaste ese sonido? Comenta si quieres la especia secreta antes de que se agote."
+        : "¿Habrías hecho tú lo mismo? Comenta abajo y mira cómo vuelve a empezar.";
     }
 
     return {
@@ -622,15 +764,28 @@ Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura:
       action,
       voiceover: vo,
       sfx: isFirst ? "Sub-bass impact hook" : isLast ? "ASMR Crunch and bass drop" : "Whoosh dinámico",
-      music: "Pulso rítmico culinario envolvente",
-      imagePrompt: `Cinematic 8k shot of gourmet crispy golden french fries culinary masterpiece, shallow depth of field, dramatic kitchen lighting`,
-      videoPrompt: `Cinematic slow motion camera movement, steam rising, high detail 4k texture, Wan 2.1 continuous fluid motion`,
+      music: "Pulso rítmico envolvente de alta retención",
+      imagePrompt: isFood
+        ? `Cinematic 8k shot of gourmet crispy golden french fries culinary masterpiece, shallow depth of field, dramatic kitchen lighting`
+        : `Cinematic dramatic close up film still, volumetric shadows, anamorphic lens flare, high budget series aesthetic`,
+      videoPrompt: isFood
+        ? `Cinematic slow motion camera movement, steam rising, high detail 4k texture, Wan 2.1 continuous fluid motion`
+        : `Slow cinematic push in on character expression, subtle lighting change, Wan 2.1 smooth motion`,
       imageUrl: f.frameUrl,
       characterId: "char-transmuted",
+      locationId: "loc-transmuted",
+      propId: "prop-transmuted",
     };
   });
 
-  return res.status(200).json({ success: true, shots: fallbackShots });
+  return res.status(200).json({
+    success: true,
+    shots: fallbackShots,
+    viralDNA: fallbackViralDNA,
+    characters: [fallbackCharacter],
+    locations: [fallbackLocation],
+    props: [fallbackProp],
+  });
 }
 
 export default async function handler(req: any, res: any) {

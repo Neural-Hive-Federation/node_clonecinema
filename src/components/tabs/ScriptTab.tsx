@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { ArrowRight, Bot, Repeat2, Check, ExternalLink } from "lucide-react";
+import {
+  ArrowRight,
+  Bot,
+  Repeat2,
+  Check,
+  ExternalLink,
+  Play,
+  Pause,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Maximize2,
+} from "lucide-react";
 import type { Project, ProjectUpdater } from "../../types";
 import { Field, Section, Spinner } from "../ui";
 import { MODE_LABEL } from "../../lib/project";
@@ -24,6 +36,39 @@ export function ScriptTab({
   const [miningFenix, setMiningFenix] = useState(false);
   const [reconstructing, setReconstructing] = useState(false);
   const [fenixStatus, setFenixStatus] = useState<string | null>(null);
+  const [viewingFrameIdx, setViewingFrameIdx] = useState<number | null>(null);
+  const [isPlayingSlideshow, setIsPlayingSlideshow] = useState(false);
+
+  const frames = project.sourceMeta?.frames || [];
+
+  // Slideshow automático cada 3 segundos
+  useEffect(() => {
+    if (!isPlayingSlideshow || viewingFrameIdx === null || frames.length === 0) return;
+    const timer = setInterval(() => {
+      setViewingFrameIdx((prev) => (prev === null ? 0 : (prev + 1) % frames.length));
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [isPlayingSlideshow, viewingFrameIdx, frames.length]);
+
+  // Navegación por teclado (Flechas, Espacio, Escape)
+  useEffect(() => {
+    if (viewingFrameIdx === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setViewingFrameIdx(null);
+        setIsPlayingSlideshow(false);
+      } else if (e.key === "ArrowLeft") {
+        setViewingFrameIdx((prev) => (prev === null ? 0 : (prev - 1 + frames.length) % frames.length));
+      } else if (e.key === "ArrowRight") {
+        setViewingFrameIdx((prev) => (prev === null ? 0 : (prev + 1) % frames.length));
+      } else if (e.key === " ") {
+        e.preventDefault();
+        setIsPlayingSlideshow((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [viewingFrameIdx, frames.length]);
 
   const handleReconstructWithFenix = async (framesToUse: any[]) => {
     if (!framesToUse || framesToUse.length === 0) return;
@@ -48,13 +93,17 @@ export function ScriptTab({
       if (data.success && Array.isArray(data.shots) && data.shots.length > 0) {
         patch({
           shots: data.shots,
+          viralDNA: data.viralDNA || project.viralDNA,
+          characters: data.characters && data.characters.length > 0 ? data.characters : project.characters,
+          locations: data.locations && data.locations.length > 0 ? data.locations : project.locations,
+          props: data.props && data.props.length > 0 ? data.props : project.props,
           duration: data.shots.reduce((acc: number, s: any) => acc + (s.seconds || 0), 0) || project.duration,
           sourceMeta: {
             ...(project.sourceMeta || { url: project.sourceUrl || "", platform: "TikTok" }),
             frames: framesToUse,
           },
         });
-        setFenixStatus(`🎉 ¡Guion reconstruido con éxito! ${data.shots.length} planos sincronizados para Wan 2.1`);
+        setFenixStatus(`🎉 ¡Guion y ADN reconstruidos con éxito! ${data.shots.length} planos sincronizados para Wan 2.1`);
       }
     } catch (err: any) {
       console.error("Error reconstruyendo guion con Fénix:", err);
@@ -281,47 +330,47 @@ export function ScriptTab({
               Pide un plan en el chat para ver el guion aquí.
             </p>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {(project.shots || []).map((shot) => (
                 <div
                   key={shot.id}
-                  className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3.5"
+                  className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 p-3 hover:border-zinc-700/80 transition flex flex-col justify-between"
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-zinc-800 font-display text-[11px] font-bold text-zinc-300">
-                      {shot.number}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[12.5px] font-semibold text-zinc-100">
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-zinc-800 font-display text-[10.5px] font-bold text-signal">
+                          {shot.number}
+                        </span>
+                        <span className="text-[12px] font-semibold text-zinc-100 line-clamp-1">
                           {shot.title}
                         </span>
-                        <span className="text-[10px] text-zinc-600">{shot.seconds}s</span>
-                        <span className="text-[10px] text-zinc-600">·</span>
-                        <span className="text-[10px] text-zinc-500">{shot.camera}</span>
                       </div>
-                      <p className="mt-1 text-[12px] leading-relaxed text-zinc-400">
-                        {shot.action}
-                      </p>
-                      {shot.dialogue && (
-                        <p className="mt-1.5 text-[11.5px] italic text-signal/80">
-                          {shot.dialogue}
-                        </p>
-                      )}
-                      {shot.voiceover && (
-                        <p className="mt-1 text-[11px] text-zinc-500">
-                          <span className="label mr-1.5">VO</span>
-                          {shot.voiceover}
-                        </p>
-                      )}
-                      {shot.sfx && (
-                        <p className="mt-1 text-[10.5px] text-zinc-600">
-                          SFX · {shot.sfx}
-                          {shot.music ? ` — Música · ${shot.music}` : ""}
-                        </p>
-                      )}
+                      <span className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[9.5px] font-mono text-zinc-400 shrink-0">
+                        {shot.seconds}s
+                      </span>
                     </div>
+
+                    <div className="text-[10px] text-zinc-500 font-mono line-clamp-1 mb-1">
+                      📷 {shot.camera}
+                    </div>
+
+                    <p className="text-[11px] leading-relaxed text-zinc-300 line-clamp-2">
+                      {shot.action}
+                    </p>
+
+                    {shot.voiceover && (
+                      <p className="mt-1.5 text-[10.5px] text-zinc-400 italic line-clamp-2 border-l-2 border-signal/40 pl-2">
+                        VO: "{shot.voiceover}"
+                      </p>
+                    )}
                   </div>
+
+                  {shot.sfx && (
+                    <div className="mt-2 pt-1.5 border-t border-zinc-800/60 text-[9px] text-zinc-500 line-clamp-1 font-mono">
+                      🎵 {shot.sfx} {shot.music ? `— ${shot.music}` : ""}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -480,6 +529,18 @@ export function ScriptTab({
                 {project.sourceMeta.note && (
                   <p className="text-[10px] text-zinc-500 pt-1 leading-relaxed">{project.sourceMeta.note}</p>
                 )}
+                {project.sourceMeta.url && (
+                  <div className="pt-2">
+                    <a
+                      href={project.sourceMeta.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700/80 border border-zinc-700/80 px-2.5 py-1.5 text-[11px] font-semibold text-zinc-200 transition hover:text-signal shadow-xs cursor-pointer"
+                    >
+                      <ExternalLink size={12} className="text-signal" /> Abrir video fuente en TikTok ↗
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -517,18 +578,40 @@ export function ScriptTab({
                 <div className="mt-3.5 pt-3 border-t border-zinc-800/60">
                   <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-300 mb-2">
                     <span className="flex items-center gap-1.5 text-signal">
-                      <span>🦅</span> Planos extraídos por el Fénix ({project.sourceMeta.frames.length})
+                      <span>🦅</span> Planos del Fénix ({project.sourceMeta.frames.length})
                     </span>
-                    <span className="text-[10px] text-zinc-500 font-mono">1 plano / ~4.5s</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setViewingFrameIdx(0);
+                        setIsPlayingSlideshow(true);
+                      }}
+                      className="flex items-center gap-1.5 rounded-lg bg-signal/15 hover:bg-signal/25 border border-signal/40 px-2 py-1 text-[10px] font-bold text-signal transition cursor-pointer"
+                      title="Reproducir secuencia de fotogramas cada 3 segundos"
+                    >
+                      <Play size={10} fill="currentColor" /> Reproducir ADN (3s)
+                    </button>
                   </div>
+
                   <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
                     {project.sourceMeta.frames.map((f, idx) => (
-                      <div key={idx} className="relative shrink-0 w-16 group">
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          setViewingFrameIdx(idx);
+                          setIsPlayingSlideshow(false);
+                        }}
+                        className="relative shrink-0 w-16 group cursor-pointer"
+                        title={`Plano ${f.shotNumber} (${f.timestampSec}s) · Clic para ampliar`}
+                      >
                         <img
                           src={f.frameUrl}
                           alt={`Plano ${f.shotNumber}`}
-                          className="h-20 w-16 rounded-lg object-cover border border-zinc-800 group-hover:border-signal transition"
+                          className="h-20 w-16 rounded-lg object-cover border border-zinc-800 group-hover:border-signal group-hover:scale-105 transition"
                         />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition rounded-lg flex items-center justify-center">
+                          <Maximize2 size={12} className="text-white" />
+                        </div>
                         <div className="absolute bottom-1 left-1 right-1 rounded bg-black/85 px-1 py-0.5 text-[8.5px] font-mono text-center text-zinc-200">
                           P{f.shotNumber} ({f.timestampSec}s)
                         </div>
@@ -555,6 +638,122 @@ export function ScriptTab({
           )}
         </div>
       </div>
+
+      {/* MODAL / MINI REPRODUCTOR DE FOTOGRAMAS DEL FÉNIX */}
+      {viewingFrameIdx !== null && frames[viewingFrameIdx] && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="relative max-w-4xl w-full max-h-[92vh] flex flex-col items-center bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl">
+            {/* Cabecera del modal */}
+            <div className="w-full flex items-center justify-between px-4 py-3 border-b border-zinc-800/80 bg-zinc-900/60">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🦅</span>
+                <span className="text-sm font-bold text-zinc-100">
+                  Plano {frames[viewingFrameIdx].shotNumber} de {frames.length}
+                </span>
+                <span className="text-xs text-signal font-mono">
+                  ({frames[viewingFrameIdx].timestampSec}s en video fuente)
+                </span>
+                {isPlayingSlideshow && (
+                  <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20 animate-pulse">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Reproduciendo ADN (3s)
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setViewingFrameIdx(null);
+                  setIsPlayingSlideshow(false);
+                }}
+                className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Contenedor de la Imagen con flechas */}
+            <div className="relative flex-1 w-full flex items-center justify-center bg-black/60 p-4 min-h-[50vh] max-h-[66vh] overflow-hidden">
+              <img
+                src={frames[viewingFrameIdx].frameUrl}
+                alt={`Plano ${frames[viewingFrameIdx].shotNumber}`}
+                className="max-h-[62vh] max-w-full rounded-xl object-contain shadow-2xl transition-all duration-300"
+              />
+
+              {/* Flecha anterior */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPlayingSlideshow(false);
+                  setViewingFrameIdx((prev) => (prev === null ? 0 : (prev - 1 + frames.length) % frames.length));
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/70 hover:bg-zinc-800 text-white border border-white/10 shadow-xl transition cursor-pointer hover:scale-110"
+                title="Plano anterior (Flecha Izquierda)"
+              >
+                <ChevronLeft size={22} />
+              </button>
+
+              {/* Flecha siguiente */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPlayingSlideshow(false);
+                  setViewingFrameIdx((prev) => (prev === null ? 0 : (prev + 1) % frames.length));
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/70 hover:bg-zinc-800 text-white border border-white/10 shadow-xl transition cursor-pointer hover:scale-110"
+                title="Plano siguiente (Flecha Derecha)"
+              >
+                <ChevronRight size={22} />
+              </button>
+            </div>
+
+            {/* Barra de control inferior */}
+            <div className="w-full px-4 py-3 border-t border-zinc-800/80 bg-zinc-900/60 flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setIsPlayingSlideshow((prev) => !prev)}
+                  className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-md cursor-pointer ${
+                    isPlayingSlideshow
+                      ? "bg-amber-500/20 border border-amber-500/50 text-amber-300 hover:bg-amber-500/30"
+                      : "bg-signal text-black hover:bg-signal/90"
+                  }`}
+                >
+                  {isPlayingSlideshow ? <Pause size={14} /> : <Play size={14} fill="currentColor" />}
+                  <span>{isPlayingSlideshow ? "Pausar Slideshow" : "Reproducir ADN (cada 3s)"}</span>
+                </button>
+
+                <div className="text-[11px] text-zinc-400 font-mono">
+                  Usa <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">←</kbd> <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">→</kbd> o <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">Espacio</kbd>
+                </div>
+              </div>
+
+              {/* Tira inferior de miniaturas para salto directo */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                {frames.map((f, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => {
+                      setViewingFrameIdx(i);
+                      setIsPlayingSlideshow(false);
+                    }}
+                    className={`relative shrink-0 w-12 h-14 rounded-md overflow-hidden border transition cursor-pointer ${
+                      i === viewingFrameIdx
+                        ? "border-signal ring-2 ring-signal/50 scale-105"
+                        : "border-zinc-800 opacity-60 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={f.frameUrl} alt="" className="w-full h-full object-cover" />
+                    <span className="absolute bottom-0 inset-x-0 bg-black/80 text-[7.5px] font-mono text-center text-zinc-300">
+                      P{f.shotNumber}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
