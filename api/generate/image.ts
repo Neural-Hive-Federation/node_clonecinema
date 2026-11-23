@@ -95,8 +95,8 @@ try:
     )
     from PIL import Image, ImageOps
 except ImportError:
-    print("[clonecinema] Instalando/actualizando dependencias en entorno Kaggle...")
-    subprocess.run([sys.executable, "-m", "pip", "install", "-U", "diffusers", "transformers", "accelerate", "safetensors", "pillow", "-q"])
+    print("[clonecinema] Instalando dependencias de difusion en Kaggle...")
+    subprocess.run([sys.executable, "-m", "pip", "install", "diffusers", "transformers", "accelerate", "safetensors", "pillow", "-q"])
     import torch
     from diffusers import (
         DiffusionPipeline,
@@ -115,6 +115,7 @@ RAW_B64 = "__PAYLOAD_B64__"
 
 DEFAULT_PAYLOAD = {
     "job_id": "playground_keyframe",
+    "count": 1,
     "prompt": "Cinematic film still, ultra realistic, dramatic cinematic lighting, 8k masterpiece",
     "negative_prompt": "ugly, deformed, noisy, blurry, distorted, low quality, bad anatomy, bad hands, cartoonish, lowres, collage, split screen",
     "aspect_ratio": "9:16",
@@ -138,12 +139,13 @@ RATIOS = {
 }
 
 job_id = PAYLOAD.get("job_id", "default_job")
+count = int(PAYLOAD.get("count", 1))
 prompt = PAYLOAD.get("prompt") or DEFAULT_PAYLOAD["prompt"]
 negative_prompt = PAYLOAD.get("negative_prompt") or DEFAULT_PAYLOAD["negative_prompt"]
 aspect_ratio = PAYLOAD.get("aspect_ratio", "9:16")
 width, height = RATIOS.get(aspect_ratio, (768, 1344))
 seed = int(PAYLOAD.get("seed", int(time.time()) % 100000))
-steps = int(PAYLOAD.get("steps", 25))
+steps = int(PAYLOAD.get("steps", 20))
 guidance_scale = float(PAYLOAD.get("guidance_scale", 3.0))
 strength = float(PAYLOAD.get("strength", 0.65))
 
@@ -248,8 +250,8 @@ def main() -> None:
     t_load_elapsed = round(time.time() - t_load_start, 2)
     print(f"[clonecinema] Modelo cargado en GPU en {t_load_elapsed}s")
 
-    generator = torch.Generator("cuda").manual_seed(seed)
     t_gen_start = time.time()
+    generated_images = []
 
     if has_refs:
         print(f"[clonecinema] Modo IMAGE-TO-IMAGE / MULTI-REFERENCIA activo (strength={strength})")
@@ -258,37 +260,50 @@ def main() -> None:
         else:
             init_image = compose_multi_reference(width, height, loc_img, char_img, prop_img)
 
-        img2img_pipe = AutoPipelineForImage2Image.from_pipe(base_pipe)
-        img2img_pipe.to("cuda")
-
-        result = img2img_pipe(
-            prompt=prompt,
-            image=init_image,
-            strength=strength,
-            negative_prompt=negative_prompt,
-            num_inference_steps=steps,
-            guidance_scale=guidance_scale,
-            generator=generator
-        )
+        pipe = AutoPipelineForImage2Image.from_pipe(base_pipe)
+        pipe.to("cuda")
     else:
         print("[clonecinema] Modo TEXT-TO-IMAGE estándar activo")
-        result = base_pipe(
-            prompt=prompt,
-            negative_prompt=negative_prompt,
-            num_inference_steps=steps,
-            guidance_scale=guidance_scale,
-            width=width,
-            height=height,
-            generator=generator
-        )
+        pipe = base_pipe
+
+    for idx in range(count):
+        cur_seed = seed + idx * 137
+        generator = torch.Generator("cuda").manual_seed(cur_seed)
+        print(f"[clonecinema] Generando imagen {idx + 1}/{count} con seed {cur_seed}...")
+
+        if has_refs:
+            res = pipe(
+                prompt=prompt,
+                image=init_image,
+                strength=strength,
+                negative_prompt=negative_prompt,
+                num_inference_steps=steps,
+                guidance_scale=guidance_scale,
+                generator=generator
+            )
+        else:
+            res = pipe(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                num_inference_steps=steps,
+                guidance_scale=guidance_scale,
+                width=width,
+                height=height,
+                generator=generator
+            )
+
+        file_path = f"/kaggle/working/output_image_{idx}.png" if count > 1 else OUTPUT_FILE
+        res.images[0].save(file_path, format="PNG")
+        generated_images.append(file_path)
+        if idx == 0 and count > 1:
+            res.images[0].save(OUTPUT_FILE, format="PNG")
+        print(f"[clonecinema] Imagen {idx + 1} guardada en {file_path}")
 
     t_gen_elapsed = round(time.time() - t_gen_start, 2)
 
-    result.images[0].save(OUTPUT_FILE, format="PNG")
-    print(f"[clonecinema] Imagen generada y guardada en {OUTPUT_FILE} ({t_gen_elapsed}s)")
-
     meta = {
         "job_id": job_id,
+        "count": count,
         "prompt": prompt,
         "aspect_ratio": aspect_ratio,
         "width": width,
@@ -379,13 +394,14 @@ export default async function handler(req: any, res: any) {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { prompt, aspectRatio, references, strength } = req.body || {};
+    const { prompt, aspectRatio, references, strength, count } = req.body || {};
     if (!prompt || typeof prompt !== "string") {
       return res.status(400).json({ error: "Falta el prompt de la imagen." });
     }
 
     const supabase = getSupabaseAdmin();
     const jobId = randomUUID();
+    const numCount = Math.min(Math.max(Number(count) || 1, 1), 4);
 
     let enrichedPrompt = prompt.trim();
     if (!enrichedPrompt.toLowerCase().includes("photorealistic")) {
@@ -400,6 +416,7 @@ export default async function handler(req: any, res: any) {
 
     const payload = {
       job_id: jobId,
+      count: numCount,
       prompt: enrichedPrompt,
       aspect_ratio: aspectRatio || "16:9",
       character_image_b64: charRef,
@@ -412,7 +429,7 @@ export default async function handler(req: any, res: any) {
     const payloadB64 = Buffer.from(JSON.stringify(payload), "utf-8").toString("base64");
     const scriptWithPayload = FLUX_IMAGE_TEMPLATE.replace("__PAYLOAD_B64__", payloadB64);
 
-    console.log(`[Kaggle Submit] Enviando tarea ${jobId} a wilycol/clonecinema-flux-image...`);
+    console.log(`[Kaggle Submit] Enviando tarea ${jobId} (variaciones: ${numCount}) a wilycol/clonecinema-flux-image...`);
     const { versionNumber } = await pushKaggleScript({
       slug: "wilycol/clonecinema-flux-image",
       title: "CloneCinema Flux image",
@@ -428,6 +445,7 @@ export default async function handler(req: any, res: any) {
       provider: "kaggle",
       kernel_ref: "wilycol/clonecinema-flux-image",
       prompt: enrichedPrompt,
+      metadata: { count: numCount },
     });
 
     if (insertErr) {

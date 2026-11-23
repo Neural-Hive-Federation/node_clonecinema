@@ -114,12 +114,18 @@ export default async function handler(req: any, res: any) {
 
     // 1. Si ya está completado
     if (job.status === "done") {
+      const allUrls = Array.isArray(job.metadata?.imageUrls)
+        ? job.metadata.imageUrls
+        : job.output_url
+        ? [job.output_url]
+        : [];
       return res.status(200).json({
         success: true,
         jobId: job.id,
         status: "done",
         done: true,
         imageUrl: job.kind === "image" ? job.output_url : undefined,
+        imageUrls: job.kind === "image" && allUrls.length > 0 ? allUrls : undefined,
         videoUrl: job.kind === "video" ? job.output_url : undefined,
       });
     }
@@ -169,10 +175,66 @@ export default async function handler(req: any, res: any) {
           }
 
           const isVideo = job.kind === "video";
+
+          // Para imágenes con múltiples variaciones (e.g. casting de 4 opciones)
+          if (!isVideo) {
+            const varFiles = (output.files || [])
+              .filter((f) => /^output_image_\d+\.png$/.test(f.fileName))
+              .sort((a, b) => {
+                const numA = parseInt(a.fileName.match(/\d+/)![0], 10);
+                const numB = parseInt(b.fileName.match(/\d+/)![0], 10);
+                return numA - numB;
+              });
+
+            if (varFiles.length > 0) {
+              const uploadedUrls: string[] = [];
+              for (let i = 0; i < varFiles.length; i++) {
+                const vf = varFiles[i];
+                try {
+                  const vRes = await fetch(vf.url);
+                  if (vRes.ok) {
+                    const vBuf = Buffer.from(await vRes.arrayBuffer());
+                    const vName = `kaggle_${job.id}_var_${i}_${Date.now()}.png`;
+                    const { error: vUpErr } = await supabase.storage
+                      .from("keyframes")
+                      .upload(vName, vBuf, { contentType: "image/png", upsert: true });
+                    if (!vUpErr) {
+                      const { data: vPub } = supabase.storage.from("keyframes").getPublicUrl(vName);
+                      if (vPub?.publicUrl) uploadedUrls.push(vPub.publicUrl);
+                    }
+                  }
+                } catch (e) {
+                  console.warn("[jobs/[id]] Error subiendo variacion:", e);
+                }
+              }
+
+              const finalUrls = uploadedUrls.length > 0 ? uploadedUrls : varFiles.map((f) => f.url);
+              await supabase
+                .from("ai_jobs")
+                .update({
+                  status: "done",
+                  output_url: finalUrls[0],
+                  metadata: { ...(job.metadata || {}), imageUrls: finalUrls },
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", job.id);
+
+              return res.status(200).json({
+                success: true,
+                jobId: job.id,
+                status: "done",
+                done: true,
+                imageUrl: finalUrls[0],
+                imageUrls: finalUrls,
+              });
+            }
+          }
+
           const mediaFile = isVideo
             ? output.files?.find((f) => f.fileName === "output_video.mp4") ||
               output.files?.find((f) => f.fileName.endsWith(".mp4") || f.fileName.endsWith(".webm"))
-            : output.files?.find((f) => f.fileName.endsWith(".png") || f.fileName.endsWith(".jpg") || f.fileName.endsWith(".jpeg"));
+            : output.files?.find((f) => f.fileName === "output_image.png") ||
+              output.files?.find((f) => f.fileName.endsWith(".png") || f.fileName.endsWith(".jpg") || f.fileName.endsWith(".jpeg"));
 
           if (mediaFile && mediaFile.url) {
             // Descargar de Kaggle y subir permanentemente a Supabase Storage

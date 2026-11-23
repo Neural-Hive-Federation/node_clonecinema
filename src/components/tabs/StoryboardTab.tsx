@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { AudioLines, ImageIcon, Layers, Maximize2, Plus, Sparkles, Trash2, Upload, Volume2, Wand2, X } from "lucide-react";
 import type { Shot, Project, ProjectUpdater } from "../../types";
 import { generateImage, generateSpeech, isPaymentRequired } from "../../lib/api";
@@ -21,6 +21,8 @@ export function StoryboardTab({
   const [isDraggingInspector, setIsDraggingInspector] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bulk, setBulk] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; title: string } | null>(null);
+  const abortBulkRef = useRef(false);
   const [useMultiref, setUseMultiref] = useState(true);
   const [lightbox, setLightbox] = useState<{ src: string; title: string; subtitle?: string } | null>(null);
   const { openPaywall, refreshAccount, costs } = useSession();
@@ -158,12 +160,27 @@ export function StoryboardTab({
     }
   }
 
-  async function generateAll() {
+  async function generateAll(force: boolean = false) {
+    if (bulk) return;
+    abortBulkRef.current = false;
     setBulk(true);
     setError(null);
-    for (const shot of project.shots) {
-      if (shot.imageUrl) continue;
+
+    const targetShots = force
+      ? (project.shots || [])
+      : (project.shots || []).filter((s) => !s.imageUrl);
+
+    if (targetShots.length === 0) {
+      setBulk(false);
+      return;
+    }
+
+    for (let i = 0; i < targetShots.length; i++) {
+      if (abortBulkRef.current) break;
+      const shot = targetShots[i];
+      setBulkProgress({ current: i + 1, total: targetShots.length, title: shot.title });
       setLoadingIds((prev) => [...prev, shot.id]);
+
       try {
         const shotRefData = getReferencesForShot(shot);
         const loraBonus = (useMultiref && shotRefData.char?.loraConfig?.triggerWord) ? `, ${shotRefData.char.loraConfig.triggerWord}` : "";
@@ -172,17 +189,26 @@ export function StoryboardTab({
         updateShot(shot.id, { imageUrl });
         void refreshAccount();
       } catch (err: any) {
-        if (isPaymentRequired(err)) openPaywall(err.message);
-        else setError(err?.message || "La generación se detuvo.");
-        break;
+        if (isPaymentRequired(err)) {
+          openPaywall(err.message);
+          break;
+        } else {
+          setError(err?.message || `La generación se detuvo en el plano ${shot.number}.`);
+          break;
+        }
       } finally {
         setLoadingIds((prev) => prev.filter((id) => id !== shot.id));
       }
     }
+    setBulkProgress(null);
     setBulk(false);
   }
 
-  if ((project.shots || []).length === 0) {
+  const totalShots = (project.shots || []).length;
+  const shotsWithImage = (project.shots || []).filter((s) => s.imageUrl).length;
+  const shotsEmpty = totalShots - shotsWithImage;
+
+  if (totalShots === 0) {
     return (
       <EmptyState
         icon={<Layers size={18} />}
@@ -204,9 +230,9 @@ export function StoryboardTab({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="chip chip-active">{project.format}</span>
-              <span className="chip">{(project.shots || []).length} planos</span>
+              <span className="chip">{totalShots} planos</span>
               <span className="chip">
-                {(project.shots || []).filter((s) => s.imageUrl).length} keyframes
+                {shotsWithImage} keyframes
               </span>
               <button
                 className="btn btn-ghost text-[11px] border border-zinc-800 hover:border-zinc-700 hover:text-zinc-100 ml-1"
@@ -218,17 +244,80 @@ export function StoryboardTab({
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10.5px] text-zinc-500">{costs.image} crédito / keyframe</span>
-              <button
-                className="btn btn-ghost text-[11.5px] border border-zinc-800 hover:border-zinc-700"
-                onClick={generateAll}
-                disabled={bulk || loadingIds.length > 0}
-                title="Genera en cascada todos los planos que aún no tengan imagen"
-              >
-                {bulk ? <Spinner size={13} /> : <Wand2 size={13} />}
-                Generar todos en lote
-              </button>
+
+              {shotsEmpty > 0 && shotsWithImage > 0 ? (
+                <>
+                  <button
+                    className="btn btn-ghost text-[11.5px] border border-zinc-800 hover:border-zinc-700"
+                    onClick={() => generateAll(false)}
+                    disabled={bulk || loadingIds.length > 0}
+                    title="Genera solo los planos que no tienen ninguna imagen"
+                  >
+                    {bulk && !abortBulkRef.current ? <Spinner size={13} /> : <Wand2 size={13} />}
+                    Generar vacíos ({shotsEmpty})
+                  </button>
+                  <button
+                    className="btn btn-primary text-[11.5px] border border-signal/40 bg-signal/15 text-signal hover:bg-signal hover:text-black font-semibold flex items-center gap-1.5 cursor-pointer shadow-md"
+                    onClick={() => {
+                      if (confirm(`¿Deseas generar los ${totalShots} keyframes con IA reemplazando las capturas de referencia del Fénix?`)) {
+                        generateAll(true);
+                      }
+                    }}
+                    disabled={bulk || loadingIds.length > 0}
+                    title="Reemplaza todas las capturas de referencia por keyframes de IA"
+                  >
+                    <Sparkles size={13} />
+                    Reemplazar todos con IA ({totalShots})
+                  </button>
+                </>
+              ) : shotsWithImage === totalShots ? (
+                <button
+                  className="btn btn-primary text-[11.5px] border border-signal/40 bg-signal/20 text-signal hover:bg-signal hover:text-black font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                  onClick={() => {
+                    if (confirm(`Actualmente los ${totalShots} planos tienen capturas del Fénix.\n\n¿Deseas generar los ${totalShots} keyframes fotorrealistas con IA reemplazando las capturas?`)) {
+                      generateAll(true);
+                    }
+                  }}
+                  disabled={bulk || loadingIds.length > 0}
+                  title="Genera con IA todos los keyframes reemplazando las capturas de video del Fénix"
+                >
+                  {bulk ? <Spinner size={13} /> : <Sparkles size={13} />}
+                  <span>{bulk && bulkProgress ? `Generando ${bulkProgress.current}/${bulkProgress.total}...` : `✨ Generar imágenes IA en lote (${totalShots})`}</span>
+                </button>
+              ) : (
+                <button
+                  className="btn btn-ghost text-[11.5px] border border-zinc-800 hover:border-zinc-700 flex items-center gap-1.5"
+                  onClick={() => generateAll(false)}
+                  disabled={bulk || loadingIds.length > 0}
+                  title="Genera en cascada todos los planos que aún no tengan imagen"
+                >
+                  {bulk ? <Spinner size={13} /> : <Wand2 size={13} />}
+                  <span>Generar todos en lote ({shotsEmpty})</span>
+                </button>
+              )}
             </div>
           </div>
+
+          {bulkProgress && (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-signal/40 bg-signal/10 px-4 py-2.5 text-[12px] text-zinc-100 shadow-md animate-pulse">
+              <div className="flex items-center gap-2.5 overflow-hidden">
+                <Spinner size={14} />
+                <span className="font-bold text-signal shrink-0">
+                  Generando plano {bulkProgress.current} de {bulkProgress.total}:
+                </span>
+                <span className="text-zinc-300 truncate max-w-[280px] sm:max-w-[420px]">
+                  "{bulkProgress.title}"
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => { abortBulkRef.current = true; }}
+                className="shrink-0 rounded-lg border border-red-500/40 bg-red-500/10 px-2.5 py-1 text-[11px] font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200 transition cursor-pointer"
+              >
+                Detener lote
+              </button>
+            </div>
+          )}
 
           {error && (
             <div className="rounded-xl border border-red-500/25 bg-red-500/5 px-3 py-2 text-[11.5px] text-red-300">

@@ -120,6 +120,7 @@ interface JobStatus {
   status?: string;
   done: boolean;
   imageUrl?: string;
+  imageUrls?: string[];
   videoUrl?: string;
   error?: string;
 }
@@ -127,8 +128,7 @@ interface JobStatus {
 const POLL_MS = 3000;
 const MAX_WAIT_MS = 40 * 60 * 1000;
 
-/** Sondea un job hasta que termina. Devuelve la URL del artefacto. */
-async function waitForJob(jobId: string, kind: "image" | "video"): Promise<string> {
+export async function waitForJobFull(jobId: string, kind: "image" | "video"): Promise<JobStatus> {
   const started = Date.now();
   let lastStatus = "";
 
@@ -137,15 +137,21 @@ async function waitForJob(jobId: string, kind: "image" | "video"): Promise<strin
 
     if (status.error) throw new Error(status.error);
     if (status.done) {
-      const url = kind === "image" ? status.imageUrl : status.videoUrl;
-      if (url) return url;
-      throw new Error("La tarea terminó sin entregar el archivo.");
+      return status;
     }
     lastStatus = status.status || lastStatus;
     await new Promise((r) => setTimeout(r, POLL_MS));
   }
 
   throw new Error(`La tarea sigue en cola (${lastStatus || "pendiente"}) tras 40 minutos.`);
+}
+
+/** Sondea un job hasta que termina. Devuelve la URL del artefacto. */
+async function waitForJob(jobId: string, kind: "image" | "video"): Promise<string> {
+  const status = await waitForJobFull(jobId, kind);
+  const url = kind === "image" ? status.imageUrl : status.videoUrl;
+  if (url) return url;
+  throw new Error("La tarea terminó sin entregar el archivo.");
 }
 
 export async function generateImage(
@@ -182,10 +188,13 @@ export async function generateImageVariations(
   if (Array.isArray(data.imageUrls) && data.imageUrls.length > 0) {
     return data.imageUrls;
   }
-  if (data.imageUrl) return [data.imageUrl];
+  if (data.imageUrl && count <= 1) return [data.imageUrl];
   if (data.jobId) {
-    const single = await waitForJob(data.jobId, "image");
-    return [single];
+    const status = await waitForJobFull(data.jobId, "image");
+    if (Array.isArray(status.imageUrls) && status.imageUrls.length > 0) {
+      return status.imageUrls;
+    }
+    if (status.imageUrl) return [status.imageUrl];
   }
   throw new Error(data.error || "Sin imágenes generadas");
 }
