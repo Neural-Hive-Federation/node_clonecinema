@@ -126,7 +126,7 @@ interface JobStatus {
 }
 
 const POLL_MS = 3000;
-const MAX_WAIT_MS = 6 * 60 * 1000; // 6 minutos en lugar de 40 minutos
+const MAX_WAIT_MS = 14 * 60 * 1000; // 14 minutos: permite el arranque en frío (cold start) y descarga de pesos iniciales de Playground v2.5 sin falsos cortes
 
 export async function waitForJobFull(
   jobId: string,
@@ -153,7 +153,7 @@ export async function waitForJobFull(
     await new Promise((r) => setTimeout(r, POLL_MS));
   }
 
-  throw new Error(`La tarea sigue en cola (${lastStatus || "pendiente"}) tras superar el tiempo límite (6 minutos).`);
+  throw new Error(`La tarea sigue en cola (${lastStatus || "pendiente"}) tras superar el tiempo límite (14 minutos). Puedes reintentarla.`);
 }
 
 /** Sondea un job hasta que termina. Devuelve la URL del artefacto. */

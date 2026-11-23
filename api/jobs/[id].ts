@@ -178,8 +178,8 @@ export default async function handler(req: any, res: any) {
               if (rjRes.ok) {
                 const rjData = (await rjRes.json()) as any;
                 if (rjData.job_id && rjData.job_id !== job.id) {
-                  // Si el trabajo lleva menos de 75 segundos, Kaggle aún puede estar inicializando la nueva sesión
-                  if (jobAgeMs < 75000) {
+                  // Si el trabajo lleva menos de 210 segundos (3.5 min), Kaggle puede estar aún aprovisionando el contenedor GPU
+                  if (jobAgeMs < 210000) {
                     return res.status(200).json({
                       success: true,
                       jobId: job.id,
@@ -187,7 +187,7 @@ export default async function handler(req: any, res: any) {
                       done: false,
                     });
                   } else {
-                    // Más de 75s y Kaggle reporta COMPLETE con un job_id viejo -> la nueva sesión no corrió o fue rechazada
+                    // Más de 3.5 min y Kaggle reporta COMPLETE con un job_id viejo -> la nueva sesión no corrió o fue rechazada
                     const staleMsg = "La sesión en Kaggle no inició la nueva tarea o la cola fue rechazada.";
                     await supabase
                       .from("ai_jobs")
