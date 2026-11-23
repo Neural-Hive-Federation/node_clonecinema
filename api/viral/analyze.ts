@@ -625,6 +625,11 @@ LEY FUNDAMENTAL ANTI-COPYRIGHT (EL PRINCIPIO DEL SINÓNIMO SEMÁNTICO):
   * Si el original es de un creador/marca protegida -> Transmútalo a una identidad visual y nombre completamente original que conserve el mismo arquetipo dramático.
 - Personajes, nombres, diálogos e imagePrompts/videoPrompts deben ser 100% INVENTADOS, ORIGINALES Y APTOS PARA MONETIZACIÓN.
 
+EL VERDADERO ADN Y GANCHO DRAMÁTICO (CLONACIÓN DE ALMA VIRAL):
+1. Examina la secuencia visual real de los fotogramas para extraer el conflicto emocional profundo: sacrificio de padres por sus hijos, supervivencia familiar, superación o redención, humor negro y giros dramáticos inesperados (plot twists).
+2. Transmuta la historia a su SINÓNIMO ORIGINAL manteniendo la misma carga dramática y giros para garantizar la máxima retención y engagement viral (que la audiencia quede cautivada y ansíe ver la Parte 2 o Parte 3).
+3. Cada plano debe tener una acción y un diálogo 100% coherente con lo que se ve en la imagen, con locuciones breves (5 a 8 palabras) para sincronización de audio perfecta.
+
 Fotogramas del Fénix a secuenciar:
 ${frames.map((f: any, i: number) => `Plano ${f.shotNumber || i + 1} (segundo ${f.timestampSec}s)`).join("\n")}
 
@@ -673,9 +678,50 @@ Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura:
   ]
 }`;
 
+      // Extraer fotogramas clave en paralelo para alimentar la visión multimodal del Director
+      const visualParts: any[] = [{ text: prompt }];
+      try {
+        const sampled = frames.slice(0, 15);
+        const fetchedImages = await Promise.all(
+          sampled.map(async (f: any, idx: number) => {
+            if (!f.frameUrl) return null;
+            try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 2500);
+              const imgRes = await fetch(f.frameUrl, { signal: controller.signal });
+              clearTimeout(timeoutId);
+              if (imgRes.ok) {
+                const buf = await imgRes.arrayBuffer();
+                return {
+                  num: f.shotNumber || idx + 1,
+                  sec: f.timestampSec,
+                  data: Buffer.from(buf).toString("base64"),
+                };
+              }
+            } catch {
+              return null;
+            }
+            return null;
+          })
+        );
+
+        for (const img of fetchedImages) {
+          if (img) {
+            visualParts.push({
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: img.data,
+              },
+            });
+          }
+        }
+      } catch (imgErr) {
+        console.warn("[Multimodal Director] No se pudieron precargar fotogramas en memoria:", imgErr);
+      }
+
       const resAi = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        model: "gemini-3.5-flash",
+        contents: [{ role: "user", parts: visualParts }],
         config: {
           responseMimeType: "application/json",
           temperature: 0.7,
@@ -1095,9 +1141,50 @@ LEY FUNDAMENTAL ANTI-COPYRIGHT (EL PRINCIPIO DEL SINÓNIMO SEMÁNTICO):
   }
 }`;
 
+      // Extraer fotogramas clave en paralelo para alimentar la visión multimodal del Director
+      const visualParts: any[] = [{ text: prompt }];
+      try {
+        const sampled = frames.slice(0, 15);
+        const fetchedImages = await Promise.all(
+          sampled.map(async (f: any, idx: number) => {
+            if (!f.frameUrl) return null;
+            try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 2500);
+              const imgRes = await fetch(f.frameUrl, { signal: controller.signal });
+              clearTimeout(timeoutId);
+              if (imgRes.ok) {
+                const buf = await imgRes.arrayBuffer();
+                return {
+                  num: f.shotNumber || idx + 1,
+                  sec: f.timestampSec,
+                  data: Buffer.from(buf).toString("base64"),
+                };
+              }
+            } catch {
+              return null;
+            }
+            return null;
+          })
+        );
+
+        for (const img of fetchedImages) {
+          if (img) {
+            visualParts.push({
+              inlineData: {
+                mimeType: "image/jpeg",
+                data: img.data,
+              },
+            });
+          }
+        }
+      } catch (imgErr) {
+        console.warn("[Multimodal Director] No se pudieron precargar fotogramas en memoria:", imgErr);
+      }
+
       const resAi = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        model: "gemini-3.5-flash",
+        contents: [{ role: "user", parts: visualParts }],
         config: {
           responseMimeType: "application/json",
           temperature: 0.7,
