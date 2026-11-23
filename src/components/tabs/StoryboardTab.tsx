@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { AudioLines, ImageIcon, Layers, Maximize2, Plus, Sparkles, Trash2, Upload, Volume2, Wand2, X } from "lucide-react";
+import { AudioLines, ImageIcon, Layers, MapPin, Maximize2, Package, Plus, Sparkles, Trash2, Upload, UserRound, Volume2, Wand2, X } from "lucide-react";
 import type { Shot, Project, ProjectUpdater } from "../../types";
 import { generateImage, generateSpeech, isPaymentRequired } from "../../lib/api";
 import { uploadImageFile } from "../../lib/imageUpload";
@@ -520,6 +520,151 @@ export function StoryboardTab({
                   </Field>
                 </div>
 
+                {/* Elementos vinculados al Plano (Actor, Set, Prop) */}
+                {Boolean((project.characters || []).length || (project.locations || []).length || (project.props || []).length) && (
+                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-2.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10.5px] font-bold text-zinc-200 flex items-center gap-1.5">
+                        <UserRound size={12} className="text-amber-400" /> Elementos del Plano {selected.number}
+                      </span>
+                      <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={useMultiref}
+                          onChange={(e) => setUseMultiref(e.target.checked)}
+                          className="h-3 w-3 rounded border-zinc-700 bg-zinc-800 text-signal accent-lime-400"
+                        />
+                        <span className="text-[9.5px] text-zinc-400">Ref. visual IA</span>
+                      </label>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {/* Selector de Actor */}
+                      <div className="bg-black/50 rounded-lg p-1.5 border border-zinc-800 flex flex-col gap-1">
+                        <div className="flex items-center gap-1 min-w-0">
+                          {selectedRefs.char?.avatarUrl ? (
+                            <img
+                              src={selectedRefs.char.avatarUrl}
+                              alt=""
+                              className="h-5 w-5 rounded object-cover shrink-0 border border-zinc-700"
+                            />
+                          ) : (
+                            <UserRound size={12} className="text-amber-400 shrink-0" />
+                          )}
+                          <span className="text-[8.5px] font-bold text-zinc-400 uppercase tracking-wider truncate">
+                            Actor
+                          </span>
+                        </div>
+                        <select
+                          value={selected.characterId || ""}
+                          onChange={(e) => {
+                            const charId = e.target.value;
+                            const charObj = project.characters?.find((c) => c.id === charId);
+                            updateShot(selected.id, {
+                              characterId: charId || undefined,
+                              ...(charObj && !selected.action.includes(charObj.name)
+                                ? { action: `${selected.action ? selected.action + ". " : ""}En cuadro: ${charObj.name}.` }
+                                : {}),
+                            });
+                          }}
+                          className="w-full bg-zinc-900 border border-zinc-800 text-[9.5px] text-zinc-200 rounded px-1 py-0.5 focus:border-signal truncate cursor-pointer"
+                        >
+                          <option value="">(Sin actor)</option>
+                          {(project.characters || []).map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name} {c.avatarUrl ? "✓" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Selector de Set */}
+                      <div className="bg-black/50 rounded-lg p-1.5 border border-zinc-800 flex flex-col gap-1">
+                        <div className="flex items-center gap-1 min-w-0">
+                          {selectedRefs.loc?.imageUrl ? (
+                            <img
+                              src={selectedRefs.loc.imageUrl}
+                              alt=""
+                              className="h-5 w-5 rounded object-cover shrink-0 border border-zinc-700"
+                            />
+                          ) : (
+                            <MapPin size={12} className="text-cyan-400 shrink-0" />
+                          )}
+                          <span className="text-[8.5px] font-bold text-zinc-400 uppercase tracking-wider truncate">
+                            Set
+                          </span>
+                        </div>
+                        <select
+                          value={selected.locationId || ""}
+                          onChange={(e) => {
+                            const locId = e.target.value;
+                            const locObj = project.locations?.find((l) => l.id === locId);
+                            updateShot(selected.id, {
+                              locationId: locId || undefined,
+                              ...(locObj && !selected.camera.includes(locObj.name)
+                                ? { camera: `${selected.camera ? selected.camera + ". " : ""}En ${locObj.name}.` }
+                                : {}),
+                            });
+                          }}
+                          className="w-full bg-zinc-900 border border-zinc-800 text-[9.5px] text-zinc-200 rounded px-1 py-0.5 focus:border-signal truncate cursor-pointer"
+                        >
+                          <option value="">(Sin set)</option>
+                          {(project.locations || []).map((l) => (
+                            <option key={l.id} value={l.id}>
+                              {l.name} {l.imageUrl ? "✓" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Selector de Prop */}
+                      <div className="bg-black/50 rounded-lg p-1.5 border border-zinc-800 flex flex-col gap-1">
+                        <div className="flex items-center gap-1 min-w-0">
+                          {selectedRefs.prop?.imageUrl ? (
+                            <img
+                              src={selectedRefs.prop.imageUrl}
+                              alt=""
+                              className="h-5 w-5 rounded object-cover shrink-0 border border-zinc-700"
+                            />
+                          ) : (
+                            <Package size={12} className="text-pink-400 shrink-0" />
+                          )}
+                          <span className="text-[8.5px] font-bold text-zinc-400 uppercase tracking-wider truncate">
+                            Prop
+                          </span>
+                        </div>
+                        <select
+                          value={selected.propId || ""}
+                          onChange={(e) => {
+                            const propId = e.target.value;
+                            const propObj = project.props?.find((p) => p.id === propId);
+                            updateShot(selected.id, {
+                              propId: propId || undefined,
+                              ...(propObj && !selected.action.includes(propObj.name)
+                                ? { action: `${selected.action ? selected.action + ". " : ""}Usa ${propObj.name}.` }
+                                : {}),
+                            });
+                          }}
+                          className="w-full bg-zinc-900 border border-zinc-800 text-[9.5px] text-zinc-200 rounded px-1 py-0.5 focus:border-signal truncate cursor-pointer"
+                        >
+                          <option value="">(Sin prop)</option>
+                          {(project.props || []).map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} {p.imageUrl ? "✓" : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {selectedRefs.missingProp && (
+                      <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-2 py-1 text-[9.5px] text-amber-300">
+                        ⚠️ «{selectedRefs.missingProp.name}» no tiene foto en <strong>Reparto & Sets</strong>.
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <Field label="Cámara / Plano">
                   <textarea
                     rows={2}
@@ -613,142 +758,6 @@ export function StoryboardTab({
                     onChange={(e) => updateShot(selected.id, { imagePrompt: e.target.value })}
                   />
                 </Field>
-
-                {/* Panel de Multi-referencia condicionada dinámico por plano */}
-                {selectedRefs.hasAnyRef && (
-                  <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-2.5 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={useMultiref}
-                          onChange={(e) => setUseMultiref(e.target.checked)}
-                          className="h-3.5 w-3.5 rounded border-zinc-700 bg-zinc-800 text-signal accent-lime-400 focus:ring-0"
-                        />
-                        <span className="text-[11px] font-bold text-zinc-200 flex items-center gap-1.5">
-                          <Sparkles size={11} className="text-signal" /> Multi-referencia activa
-                        </span>
-                      </label>
-                      <span className="rounded bg-black/50 px-1.5 py-0.5 text-[9.5px] font-semibold text-zinc-400">
-                        {useMultiref ? "Img2Img condicionado" : "T2I puro"}
-                      </span>
-                    </div>
-
-                    {useMultiref && (
-                      <div className="space-y-1.5 pt-1 border-t border-zinc-800/60">
-                        <div className="grid grid-cols-3 gap-1.5">
-                          {/* Selector de Actor */}
-                          <div className="bg-black/40 rounded-lg p-1.5 border border-zinc-800 flex flex-col gap-1">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              {selectedRefs.char?.avatarUrl ? (
-                                <img
-                                  src={selectedRefs.char.avatarUrl}
-                                  alt=""
-                                  className="h-6 w-6 rounded-md object-cover shrink-0 border border-zinc-700/60"
-                                />
-                              ) : (
-                                <div className="h-6 w-6 rounded-md bg-zinc-800 border border-zinc-700/40 flex items-center justify-center shrink-0 text-[10px] text-zinc-500">
-                                  —
-                                </div>
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <span className="block text-[8.5px] font-semibold text-zinc-400 uppercase tracking-wider">
-                                  Actor
-                                </span>
-                              </div>
-                            </div>
-                            <select
-                              value={selected.characterId ?? selectedRefs.char?.id ?? ""}
-                              onChange={(e) => updateShot(selected.id, { characterId: e.target.value })}
-                              className="w-full bg-zinc-900 border border-zinc-800 text-[9.5px] text-zinc-200 rounded px-1 py-0.5 focus:outline-none focus:border-signal truncate"
-                            >
-                              <option value="">(Sin actor)</option>
-                              {(project.characters || []).map((c) => (
-                                <option key={c.id} value={c.id}>
-                                  {c.name} {c.avatarUrl ? "✓" : "(sin foto)"}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Selector de Set */}
-                          <div className="bg-black/40 rounded-lg p-1.5 border border-zinc-800 flex flex-col gap-1">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              {selectedRefs.loc?.imageUrl ? (
-                                <img
-                                  src={selectedRefs.loc.imageUrl}
-                                  alt=""
-                                  className="h-6 w-6 rounded-md object-cover shrink-0 border border-zinc-700/60"
-                                />
-                              ) : (
-                                <div className="h-6 w-6 rounded-md bg-zinc-800 border border-zinc-700/40 flex items-center justify-center shrink-0 text-[10px] text-zinc-500">
-                                  —
-                                </div>
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <span className="block text-[8.5px] font-semibold text-zinc-400 uppercase tracking-wider">
-                                  Set
-                                </span>
-                              </div>
-                            </div>
-                            <select
-                              value={selected.locationId ?? selectedRefs.loc?.id ?? ""}
-                              onChange={(e) => updateShot(selected.id, { locationId: e.target.value })}
-                              className="w-full bg-zinc-900 border border-zinc-800 text-[9.5px] text-zinc-200 rounded px-1 py-0.5 focus:outline-none focus:border-signal truncate"
-                            >
-                              <option value="">(Sin set)</option>
-                              {(project.locations || []).map((l) => (
-                                <option key={l.id} value={l.id}>
-                                  {l.name} {l.imageUrl ? "✓" : "(sin foto)"}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {/* Selector de Prop */}
-                          <div className="bg-black/40 rounded-lg p-1.5 border border-zinc-800 flex flex-col gap-1">
-                            <div className="flex items-center gap-1.5 min-w-0">
-                              {selectedRefs.prop?.imageUrl ? (
-                                <img
-                                  src={selectedRefs.prop.imageUrl}
-                                  alt=""
-                                  className="h-6 w-6 rounded-md object-cover shrink-0 border border-zinc-700/60"
-                                />
-                              ) : (
-                                <div className="h-6 w-6 rounded-md bg-zinc-800 border border-zinc-700/40 flex items-center justify-center shrink-0 text-[10px] text-zinc-500">
-                                  —
-                                </div>
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <span className="block text-[8.5px] font-semibold text-zinc-400 uppercase tracking-wider">
-                                  Prop
-                                </span>
-                              </div>
-                            </div>
-                            <select
-                              value={selected.propId ?? selectedRefs.prop?.id ?? ""}
-                              onChange={(e) => updateShot(selected.id, { propId: e.target.value })}
-                              className="w-full bg-zinc-900 border border-zinc-800 text-[9.5px] text-zinc-200 rounded px-1 py-0.5 focus:outline-none focus:border-signal truncate"
-                            >
-                              <option value="">(Sin prop)</option>
-                              {(project.props || []).map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.name} {p.imageUrl ? "✓" : "(sin foto)"}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedRefs.missingProp && (
-                      <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 px-2.5 py-1.5 text-[10px] text-amber-300 flex items-center gap-1.5">
-                        <span>⚠️ Esta toma menciona «{selectedRefs.missingProp.name}», pero aún no tiene foto en <strong>Reparto & Sets</strong>.</span>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* Botón individual prominente para generar o subir imagen de este plano */}
                 <div className="grid grid-cols-[1fr_auto] gap-2 pt-0.5">

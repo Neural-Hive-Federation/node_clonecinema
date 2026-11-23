@@ -38,6 +38,7 @@ export function ContinuityAuditModal({
 
   const [appliedFixes, setAppliedFixes] = useState<string[]>([]);
   const [filter, setFilter] = useState<"all" | "warnings" | "suggestions">("all");
+  const [targetShotByIssue, setTargetShotByIssue] = useState<Record<string, number>>({});
 
   const filteredIssues = issues.filter((i) => {
     if (filter === "warnings") return i.severity === "warning" || i.severity === "error";
@@ -51,6 +52,64 @@ export function ContinuityAuditModal({
 
     patch(issue.fixes[fixIndex].run(project));
     setAppliedFixes((prev) => [...prev, `${issueId}_${fixIndex}`]);
+  };
+
+  const handleAssignToSpecificShot = (issue: AuditIssue, shotNumber: number) => {
+    if (issue.category === "character") {
+      const charId = issue.id.replace("orphan_chr_", "");
+      const charObj = project.characters.find((c) => c.id === charId);
+      if (!charObj) return;
+
+      patch((prev) => ({
+        shots: prev.shots.map((s) =>
+          s.number === shotNumber
+            ? {
+                ...s,
+                characterId: charObj.id,
+                action: `${s.action ? s.action + ". " : ""}En cuadro: ${charObj.name}.`,
+                imagePrompt: `${s.imagePrompt}, featuring ${charObj.name}`,
+              }
+            : s
+        ),
+      }));
+      setAppliedFixes((prev) => [...prev, `${issue.id}_custom`]);
+    } else if (issue.category === "location") {
+      const locId = issue.id.replace("orphan_loc_", "");
+      const locObj = project.locations.find((l) => l.id === locId);
+      if (!locObj) return;
+
+      patch((prev) => ({
+        shots: prev.shots.map((s) =>
+          s.number === shotNumber
+            ? {
+                ...s,
+                locationId: locObj.id,
+                camera: `${s.camera ? s.camera + ". " : ""}En ${locObj.name}.`,
+                imagePrompt: `${s.imagePrompt}, environment: ${locObj.name}`,
+              }
+            : s
+        ),
+      }));
+      setAppliedFixes((prev) => [...prev, `${issue.id}_custom`]);
+    } else if (issue.category === "prop") {
+      const propId = issue.id.replace("orphan_prop_", "");
+      const propObj = project.props.find((p) => p.id === propId);
+      if (!propObj) return;
+
+      patch((prev) => ({
+        shots: prev.shots.map((s) =>
+          s.number === shotNumber
+            ? {
+                ...s,
+                propId: propObj.id,
+                action: `${s.action ? s.action + ". " : ""}Usa ${propObj.name}.`,
+                imagePrompt: `${s.imagePrompt}, holding ${propObj.name}`,
+              }
+            : s
+        ),
+      }));
+      setAppliedFixes((prev) => [...prev, `${issue.id}_custom`]);
+    }
   };
 
   const getCategoryIcon = (category: AuditIssue["category"]) => {
@@ -209,8 +268,62 @@ export function ContinuityAuditModal({
                     </div>
                   </div>
 
-                  {/* 1-Click Fix Actions */}
-                  {issue.fixes && issue.fixes.length > 0 && (
+                  {/* Dynamic Shot Assignment for Orphans & 1-Click Fixes */}
+                  {issue.id.startsWith("orphan_") ? (
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-zinc-800/60">
+                      <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1">
+                        <span className="text-[10px] font-medium text-zinc-400">Vincular al:</span>
+                        <select
+                          value={targetShotByIssue[issue.id] ?? 1}
+                          onChange={(e) => {
+                            const val = Number(e.target.value);
+                            setTargetShotByIssue((prev) => ({ ...prev, [issue.id]: val }));
+                          }}
+                          className="bg-black border border-zinc-700/80 text-[10.5px] text-zinc-200 rounded px-1.5 py-0.5 focus:border-signal cursor-pointer"
+                        >
+                          {(project.shots || []).map((s) => (
+                            <option key={s.id} value={s.number}>
+                              Plano {s.number} · {s.title}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {appliedFixes.includes(`${issue.id}_custom`) ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10.5px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          <CheckCircle2 size={11} /> Vinculado al Plano {targetShotByIssue[issue.id] ?? 1}
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleAssignToSpecificShot(issue, targetShotByIssue[issue.id] ?? 1)}
+                          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[10.5px] font-semibold bg-signal/20 text-signal border border-signal/40 hover:bg-signal hover:text-black transition cursor-pointer shadow-sm"
+                        >
+                          <Wand2 size={11} /> Asignar al Plano {targetShotByIssue[issue.id] ?? 1}
+                        </button>
+                      )}
+
+                      {issue.fixes
+                        ?.filter((f) => f.label.startsWith("Quitar"))
+                        .map((fix, idx) => {
+                          const isApplied = appliedFixes.includes(`${issue.id}_del_${idx}`);
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              disabled={isApplied}
+                              onClick={() => {
+                                patch(fix.run(project));
+                                setAppliedFixes((prev) => [...prev, `${issue.id}_del_${idx}`]);
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] text-zinc-400 hover:text-red-400 border border-zinc-800 hover:border-red-500/30 transition cursor-pointer ml-auto"
+                            >
+                              {fix.label}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  ) : issue.fixes && issue.fixes.length > 0 ? (
                     <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-zinc-800/60">
                       <span className="text-[10px] font-medium text-zinc-500">Acción sugerida:</span>
                       {issue.fixes.map((fix, idx) => {
@@ -240,7 +353,7 @@ export function ContinuityAuditModal({
                         );
                       })}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               );
             })

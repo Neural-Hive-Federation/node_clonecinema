@@ -146,7 +146,9 @@ export function runContinuityAudit(project: Project): AuditIssue[] {
 
   // 3. Sets / Localizaciones huérfanas
   for (const l of locations) {
-    const isMentioned = textContains(allShotsText, l.name);
+    const isMentioned =
+      textContains(allShotsText, l.name) ||
+      shots.some((s) => s.locationId === l.id);
     if (!isMentioned) {
       issues.push({
         id: `orphan_loc_${l.id}`,
@@ -162,6 +164,7 @@ export function runContinuityAudit(project: Project): AuditIssue[] {
                 idx === 0
                   ? {
                       ...s,
+                      locationId: l.id,
                       camera: `${s.camera ? s.camera + " en " : ""}${l.name}`,
                       imagePrompt: `${s.imagePrompt}, environment: ${l.name}`,
                     }
@@ -182,7 +185,9 @@ export function runContinuityAudit(project: Project): AuditIssue[] {
 
   // 4. Props huérfanos
   for (const p of props) {
-    const isMentioned = textContains(allShotsText, p.name);
+    const isMentioned =
+      textContains(allShotsText, p.name) ||
+      shots.some((s) => s.propId === p.id);
     if (!isMentioned) {
       issues.push({
         id: `orphan_prop_${p.id}`,
@@ -198,6 +203,7 @@ export function runContinuityAudit(project: Project): AuditIssue[] {
                 idx === 0
                   ? {
                       ...s,
+                      propId: p.id,
                       action: `${s.action ? s.action + ". " : ""}Usa ${p.name}.`,
                       imagePrompt: `${s.imagePrompt}, holding ${p.name}`,
                     }
