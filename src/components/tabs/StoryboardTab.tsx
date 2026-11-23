@@ -23,6 +23,7 @@ export function StoryboardTab({
   const [bulk, setBulk] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; title: string } | null>(null);
   const abortBulkRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [useMultiref, setUseMultiref] = useState(true);
   const [lightbox, setLightbox] = useState<{ src: string; title: string; subtitle?: string } | null>(null);
   const { openPaywall, refreshAccount, costs } = useSession();
@@ -160,9 +161,23 @@ export function StoryboardTab({
     }
   }
 
+  const handleStopBulk = () => {
+    abortBulkRef.current = true;
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort();
+      } catch {}
+    }
+    setBulk(false);
+    setBulkProgress(null);
+    setLoadingIds([]);
+  };
+
   async function generateAll(force: boolean = false) {
     if (bulk) return;
     abortBulkRef.current = false;
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
     setBulk(true);
     setError(null);
 
@@ -176,28 +191,32 @@ export function StoryboardTab({
     }
 
     for (let i = 0; i < targetShots.length; i++) {
-      if (abortBulkRef.current) break;
-      const shot = targetShots[i];
-      setBulkProgress({ current: i + 1, total: targetShots.length, title: shot.title });
-      setLoadingIds((prev) => [...prev, shot.id]);
+      if (abortBulkRef.current || signal.aborted) break;
+      // Obtener siempre la versión más reciente del plano del proyecto por si hubo modificaciones
+      const currentShot = project.shots.find((s) => s.id === targetShots[i].id) || targetShots[i];
+      setBulkProgress({ current: i + 1, total: targetShots.length, title: currentShot.title });
+      setLoadingIds((prev) => [...prev, currentShot.id]);
 
       try {
-        const shotRefData = getReferencesForShot(shot);
+        const shotRefData = getReferencesForShot(currentShot);
         const loraBonus = (useMultiref && shotRefData.char?.loraConfig?.triggerWord) ? `, ${shotRefData.char.loraConfig.triggerWord}` : "";
-        const finalPrompt = `${shot.imagePrompt}${loraBonus}`;
-        const imageUrl = await generateImage(finalPrompt, project.format, shotRefData.refs, useMultiref ? 0.52 : undefined);
-        updateShot(shot.id, { imageUrl });
+        const finalPrompt = `${currentShot.imagePrompt}${loraBonus}`;
+        const imageUrl = await generateImage(finalPrompt, project.format, shotRefData.refs, useMultiref ? 0.52 : undefined, signal);
+        updateShot(currentShot.id, { imageUrl });
         void refreshAccount();
       } catch (err: any) {
+        if (signal.aborted || abortBulkRef.current || err?.message?.includes("cancelada")) {
+          break;
+        }
         if (isPaymentRequired(err)) {
           openPaywall(err.message);
           break;
         } else {
-          setError(err?.message || `La generación se detuvo en el plano ${shot.number}.`);
+          setError(err?.message || `La generación se detuvo en el plano ${currentShot.number}.`);
           break;
         }
       } finally {
-        setLoadingIds((prev) => prev.filter((id) => id !== shot.id));
+        setLoadingIds((prev) => prev.filter((id) => id !== currentShot.id));
       }
     }
     setBulkProgress(null);
@@ -311,7 +330,7 @@ export function StoryboardTab({
               </div>
               <button
                 type="button"
-                onClick={() => { abortBulkRef.current = true; }}
+                onClick={handleStopBulk}
                 className="shrink-0 rounded-lg border border-red-500/40 bg-red-500/10 px-2.5 py-1 text-[11px] font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200 transition cursor-pointer"
               >
                 Detener lote

@@ -128,11 +128,18 @@ interface JobStatus {
 const POLL_MS = 3000;
 const MAX_WAIT_MS = 40 * 60 * 1000;
 
-export async function waitForJobFull(jobId: string, kind: "image" | "video"): Promise<JobStatus> {
+export async function waitForJobFull(
+  jobId: string,
+  kind: "image" | "video",
+  signal?: AbortSignal
+): Promise<JobStatus> {
   const started = Date.now();
   let lastStatus = "";
 
   while (Date.now() - started < MAX_WAIT_MS) {
+    if (signal?.aborted) {
+      throw new Error("Generación cancelada por el usuario.");
+    }
     const status = await request<JobStatus>(`/api/jobs/${encodeURIComponent(jobId)}`);
 
     if (status.error) throw new Error(status.error);
@@ -140,6 +147,9 @@ export async function waitForJobFull(jobId: string, kind: "image" | "video"): Pr
       return status;
     }
     lastStatus = status.status || lastStatus;
+    if (signal?.aborted) {
+      throw new Error("Generación cancelada por el usuario.");
+    }
     await new Promise((r) => setTimeout(r, POLL_MS));
   }
 
@@ -147,8 +157,8 @@ export async function waitForJobFull(jobId: string, kind: "image" | "video"): Pr
 }
 
 /** Sondea un job hasta que termina. Devuelve la URL del artefacto. */
-async function waitForJob(jobId: string, kind: "image" | "video"): Promise<string> {
-  const status = await waitForJobFull(jobId, kind);
+async function waitForJob(jobId: string, kind: "image" | "video", signal?: AbortSignal): Promise<string> {
+  const status = await waitForJobFull(jobId, kind, signal);
   const url = kind === "image" ? status.imageUrl : status.videoUrl;
   if (url) return url;
   throw new Error("La tarea terminó sin entregar el archivo.");
@@ -158,8 +168,10 @@ export async function generateImage(
   prompt: string,
   aspectRatio: string,
   references?: { character?: string; location?: string; prop?: string },
-  strength?: number
+  strength?: number,
+  signal?: AbortSignal
 ): Promise<string> {
+  if (signal?.aborted) throw new Error("Generación cancelada por el usuario.");
   const data = await post<{
     success: boolean;
     imageUrl?: string;
@@ -168,7 +180,7 @@ export async function generateImage(
   }>("/api/generate/image", { prompt, aspectRatio, references, strength });
 
   if (data.imageUrl) return data.imageUrl;
-  if (data.jobId) return waitForJob(data.jobId, "image");
+  if (data.jobId) return waitForJob(data.jobId, "image", signal);
   throw new Error(data.error || "Sin imagen");
 }
 
