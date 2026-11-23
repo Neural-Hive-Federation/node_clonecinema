@@ -22,7 +22,47 @@ export function ScriptTab({
 }) {
   const dna = project.viralDNA;
   const [miningFenix, setMiningFenix] = useState(false);
+  const [reconstructing, setReconstructing] = useState(false);
   const [fenixStatus, setFenixStatus] = useState<string | null>(null);
+
+  const handleReconstructWithFenix = async (framesToUse: any[]) => {
+    if (!framesToUse || framesToUse.length === 0) return;
+    setReconstructing(true);
+    setFenixStatus("🎬 Director Gemini analizando la secuencia visual de fotogramas...");
+
+    try {
+      const res = await fetch("/api/viral/analyze?action=reconstruct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: project.title,
+          url: project.sourceMeta?.url || project.sourceUrl,
+          frames: framesToUse,
+          duration: project.duration || 80,
+          format: project.format,
+          style: project.style,
+          brief: project.brief,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && Array.isArray(data.shots) && data.shots.length > 0) {
+        patch({
+          shots: data.shots,
+          duration: data.shots.reduce((acc: number, s: any) => acc + (s.seconds || 0), 0) || project.duration,
+          sourceMeta: {
+            ...(project.sourceMeta || { url: project.sourceUrl || "", platform: "TikTok" }),
+            frames: framesToUse,
+          },
+        });
+        setFenixStatus(`🎉 ¡Guion reconstruido con éxito! ${data.shots.length} planos sincronizados para Wan 2.1`);
+      }
+    } catch (err: any) {
+      console.error("Error reconstruyendo guion con Fénix:", err);
+      setFenixStatus("Error al reconstruir guion con el Director");
+    } finally {
+      setReconstructing(false);
+    }
+  };
 
   // Auto-cargar fotogramas minados si ya existen para este video o proyecto
   useEffect(() => {
@@ -37,18 +77,22 @@ export function ScriptTab({
       .then((data) => {
         if (!active) return;
         if (data.done && Array.isArray(data.frames) && data.frames.length > 0) {
-          const updatedShots = (project.shots || []).map((shot, idx) => {
-            const frame = data.frames[idx] || data.frames.find((f: any) => f.shotNumber === shot.number);
-            return frame && !shot.imageUrl ? { ...shot, imageUrl: frame.frameUrl } : shot;
-          });
-          patch({
-            sourceMeta: {
-              ...(project.sourceMeta || { url: targetUrl, platform: "TikTok" }),
-              frames: data.frames,
-            },
-            shots: updatedShots,
-          });
-          setFenixStatus(`✅ ${data.frames.length} Planos del Fénix sincronizados`);
+          if ((project.shots || []).length <= 4 && data.frames.length > 4) {
+            void handleReconstructWithFenix(data.frames);
+          } else {
+            const updatedShots = (project.shots || []).map((shot, idx) => {
+              const frame = data.frames[idx] || data.frames.find((f: any) => f.shotNumber === shot.number);
+              return frame && !shot.imageUrl ? { ...shot, imageUrl: frame.frameUrl } : shot;
+            });
+            patch({
+              sourceMeta: {
+                ...(project.sourceMeta || { url: targetUrl, platform: "TikTok" }),
+                frames: data.frames,
+              },
+              shots: updatedShots,
+            });
+            setFenixStatus(`✅ ${data.frames.length} Planos del Fénix sincronizados`);
+          }
         }
       })
       .catch(() => {});
@@ -105,22 +149,26 @@ export function ScriptTab({
               setMiningFenix(false);
               setFenixStatus(`✅ ¡${pollData.frames.length} Planos minados con éxito por el Fénix!`);
 
-              const updatedFrames = pollData.frames;
-              const updatedShots = (project.shots || []).map((shot, idx) => {
-                const matchingFrame =
-                  updatedFrames[idx] || updatedFrames.find((f: any) => f.shotNumber === shot.number);
-                return matchingFrame && !shot.imageUrl
-                  ? { ...shot, imageUrl: matchingFrame.frameUrl }
-                  : shot;
-              });
+              if ((project.shots || []).length <= 4 && pollData.frames.length > 4) {
+                void handleReconstructWithFenix(pollData.frames);
+              } else {
+                const updatedFrames = pollData.frames;
+                const updatedShots = (project.shots || []).map((shot, idx) => {
+                  const matchingFrame =
+                    updatedFrames[idx] || updatedFrames.find((f: any) => f.shotNumber === shot.number);
+                  return matchingFrame && !shot.imageUrl
+                    ? { ...shot, imageUrl: matchingFrame.frameUrl }
+                    : shot;
+                });
 
-              patch({
-                sourceMeta: {
-                  ...(project.sourceMeta || { url, platform: "TikTok" }),
-                  frames: updatedFrames,
-                },
-                shots: updatedShots,
-              });
+                patch({
+                  sourceMeta: {
+                    ...(project.sourceMeta || { url, platform: "TikTok" }),
+                    frames: updatedFrames,
+                  },
+                  shots: updatedShots,
+                });
+              }
             }
           }
         } catch {
@@ -210,7 +258,23 @@ export function ScriptTab({
         <Section
           title="Guion por planos"
           subtitle="Cada plano con su cámara, acción, diálogo y audio."
-          action={<span className="chip">{(project.shots || []).length} planos</span>}
+          action={
+            <div className="flex items-center gap-2">
+              <span className="chip">{(project.shots || []).length} planos</span>
+              {project.sourceMeta?.frames && project.sourceMeta.frames.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleReconstructWithFenix(project.sourceMeta!.frames!)}
+                  disabled={reconstructing}
+                  className="chip chip-active flex items-center gap-1.5 cursor-pointer hover:brightness-110 text-[10.5px] font-bold"
+                  title="Reconstruir guion con la secuencia completa de fotogramas del Fénix"
+                >
+                  {reconstructing ? <Spinner size={10} /> : <span>🎬</span>}
+                  <span>Reconstruir con {project.sourceMeta.frames.length} Planos</span>
+                </button>
+              )}
+            </div>
+          }
         >
           {(project.shots || []).length === 0 ? (
             <p className="py-6 text-center text-[12px] text-zinc-600">
@@ -471,6 +535,20 @@ export function ScriptTab({
                       </div>
                     ))}
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleReconstructWithFenix(project.sourceMeta!.frames!)}
+                    disabled={reconstructing}
+                    className="w-full mt-3 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500/20 via-signal/30 to-emerald-500/20 border border-signal/60 py-2.5 px-3 text-[12px] font-bold text-signal hover:bg-signal hover:text-black transition-all shadow-lg cursor-pointer disabled:opacity-50"
+                  >
+                    {reconstructing ? <Spinner size={13} /> : <span className="text-base leading-none">🎬</span>}
+                    <span>
+                      {reconstructing
+                        ? `Director Gemini analizando ${project.sourceMeta.frames.length} fotogramas...`
+                        : `🎬 Reconstruir Guion (${project.sourceMeta.frames.length} Planos para Wan 2.1)`}
+                    </span>
+                  </button>
                 </div>
               )}
             </div>

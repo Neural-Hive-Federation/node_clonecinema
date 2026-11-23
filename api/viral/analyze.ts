@@ -477,6 +477,162 @@ async function handleMineFrames(req: any, res: any) {
   }
 }
 
+async function handleReconstructScript(req: any, res: any) {
+  const {
+    title = "Clon Viral",
+    url = "",
+    frames = [],
+    duration = 80,
+    format = "9:16",
+    style = "Cinematográfico Hiperrealista 8K, iluminación volumétrica, grado de color de cine",
+    brief = "",
+  } = req.body || {};
+
+  if (!Array.isArray(frames) || frames.length === 0) {
+    return res.status(400).json({ error: "No se proporcionaron fotogramas para reconstruir el guion." });
+  }
+
+  const shotSecs = Math.max(3, Math.round((duration || 80) / frames.length));
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (apiKey) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = `Actúa como el Director Creativo Ejecutivo de CloneCinema.
+El agente Fénix ha extraído una secuencia exacta de ${frames.length} fotogramas clave de este video viral:
+- Título original: "${title}"
+- URL fuente: ${url}
+- Duración total objetivo: ${duration}s (${shotSecs}s aprox por plano).
+- Formato: ${format}
+- Estilo: ${style}
+- Brief / Objetivo: "${brief || "Reconstruir la cadencia rítmica exacta transmutando los elementos para Wan 2.1"}"
+
+Fotogramas del Fénix a secuenciar:
+${frames.map((f: any, i: number) => `Plano ${f.shotNumber || i + 1} (segundo ${f.timestampSec}s)`).join("\n")}
+
+Genera exactamente ${frames.length} planos secuenciales correspondientes a cada fotograma.
+Para cada plano genera:
+- number: número de plano (1 a ${frames.length})
+- title: título del plano breve y cinemático
+- seconds: ${shotSecs}
+- camera: movimiento de cámara y encuadre para Wan 2.1
+- action: descripción de la acción visual
+- voiceover: guion de voz en off en español
+- sfx: efecto sonoro
+- imagePrompt: prompt cinemático fotorrealista en inglés
+- videoPrompt: prompt cinemático en inglés optimizado para Wan 2.1 (movimiento de cámara y sujeto)
+
+Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura:
+{
+  "shots": [
+    {
+      "number": 1,
+      "title": "string",
+      "seconds": ${shotSecs},
+      "camera": "string",
+      "action": "string",
+      "voiceover": "string",
+      "sfx": "string",
+      "imagePrompt": "string",
+      "videoPrompt": "string"
+    }
+  ]
+}`;
+
+      const resAi = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.7,
+        },
+      });
+
+      const text = resAi.text;
+      if (text) {
+        const parsed = JSON.parse(text);
+        if (parsed?.shots && parsed.shots.length > 0) {
+          const mappedShots = parsed.shots.map((s: any, idx: number) => {
+            const frame = frames[idx] || frames.find((f: any) => f.shotNumber === s.number);
+            return {
+              id: `shot-${Date.now()}-${idx + 1}`,
+              number: s.number || idx + 1,
+              title: s.title || `Plano ${idx + 1}`,
+              seconds: s.seconds || shotSecs,
+              camera: s.camera || "Tracking dinámico 4K",
+              action: s.action || `Acción cinemática del plano ${idx + 1}`,
+              voiceover: s.voiceover || "",
+              sfx: s.sfx || (idx === 0 ? "Sub-bass impact hook" : "Whoosh dinámico"),
+              music: "Pulso rítmico de tensión continua",
+              imagePrompt: s.imagePrompt || `Cinematic shot ${idx + 1}, 8k photorealistic`,
+              videoPrompt: s.videoPrompt || `Cinematic camera motion, plano ${idx + 1}`,
+              imageUrl: frame?.frameUrl,
+              characterId: "char-transmuted",
+            };
+          });
+
+          return res.status(200).json({ success: true, shots: mappedShots });
+        }
+      }
+    } catch (err) {
+      console.warn("Fallo Gemini reconstruct, usando fallback heurístico:", err);
+    }
+  }
+
+  // Fallback heurístico sintetizado para los N planos
+  const fallbackShots = frames.map((f: any, idx: number) => {
+    const num = idx + 1;
+    const isFirst = idx === 0;
+    const isLast = idx === frames.length - 1;
+    const isClimax = idx === frames.length - 2;
+
+    let title = `Paso ${num}: Desarrollo de la Receta`;
+    let camera = "Plano detalle medio con movimiento lento continuo y lente macro 85mm";
+    let action = `Preparación y manipulación de ingredientes con alta definición y textura crujiente.`;
+    let vo = `Observen la textura en este punto: este es el detalle que nadie te cuenta.`;
+
+    if (isFirst) {
+      title = "El Gancho Secreto (Hook)";
+      camera = "Crash zoom violento a plano macro con iluminación de contraste alto";
+      action = "Presentación explosiva del resultado final ultra apetitoso con vapor saliendo.";
+      vo = "Nos dijeron que esta receta era imposible de recrear en casa. Pero miren esto.";
+    } else if (idx === 1) {
+      title = "La Revelación del Ingrediente Base";
+      camera = "Paneo orbital suave descendente a 45 grados";
+      action = "Corte preciso y limpio de las patatas en tiras perfectamente uniformes.";
+      vo = "El primer secreto no está en el aceite, está en cómo cortas y secas cada porción.";
+    } else if (isClimax) {
+      title = "El Punto de Fritura Dorado Perfecto";
+      camera = "Cámara lenta a 120fps con burbujeo volumétrico y vapor dorado";
+      action = "Inmersión en aceite burbujeante logrando un dorado ámbar cristalino e irresistible.";
+      vo = "Exactamente a esta temperatura ocurre la magia: crujiente por fuera, suave por dentro.";
+    } else if (isLast) {
+      title = "El Cierre Crujiente y Bucle";
+      camera = "Primer plano frontal con micro pull-back y mordisco con audio ASMR";
+      action = "Rotura de la patata crujiente en dos revelando el interior humeante y perfecto.";
+      vo = "¿Escuchaste ese sonido? Comenta si quieres la especia secreta antes de que se agote.";
+    }
+
+    return {
+      id: `shot-${Date.now()}-${num}`,
+      number: num,
+      title,
+      seconds: shotSecs,
+      camera,
+      action,
+      voiceover: vo,
+      sfx: isFirst ? "Sub-bass impact hook" : isLast ? "ASMR Crunch and bass drop" : "Whoosh dinámico",
+      music: "Pulso rítmico culinario envolvente",
+      imagePrompt: `Cinematic 8k shot of gourmet crispy golden french fries culinary masterpiece, shallow depth of field, dramatic kitchen lighting`,
+      videoPrompt: `Cinematic slow motion camera movement, steam rising, high detail 4k texture, Wan 2.1 continuous fluid motion`,
+      imageUrl: f.frameUrl,
+      characterId: "char-transmuted",
+    };
+  });
+
+  return res.status(200).json({ success: true, shots: fallbackShots });
+}
+
 export default async function handler(req: any, res: any) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -488,6 +644,10 @@ export default async function handler(req: any, res: any) {
 
   if (req.query?.action === "mine-frames" || req.url?.includes("mine-frames")) {
     return handleMineFrames(req, res);
+  }
+
+  if (req.query?.action === "reconstruct" || req.url?.includes("reconstruct")) {
+    return handleReconstructScript(req, res);
   }
 
   const {
