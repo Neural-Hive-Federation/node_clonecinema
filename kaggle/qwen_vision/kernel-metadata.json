@@ -1,5 +1,5 @@
 {
-  "id": "wilycol/clonecinema-qwen-vision",
+  "id": "wilycol/clonecinema-qwen2-5-vl-vision-director",
   "title": "CloneCinema Qwen2.5-VL Vision Director",
   "code_file": "main.py",
   "language": "python",

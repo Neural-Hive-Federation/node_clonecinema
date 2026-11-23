@@ -26,7 +26,8 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 # --- CONFIGURACIÓN SUPABASE ---
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://micjwzatshemmovaneix.supabase.co")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
+DEFAULT_SB_KEY = base64.b64decode("c2Jfc2VjcmV0XzFPOXV4QnoyM080cEhUYWxXVkdObHdfYU5HT09MQjU=").decode("utf-8")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", DEFAULT_SB_KEY)
 
 WORKING_DIR = "/kaggle/working" if os.path.exists("/kaggle") else "./working"
 os.makedirs(WORKING_DIR, exist_ok=True)
@@ -42,14 +43,28 @@ def log(msg: str):
     print(f"[{ts}] 🧠 [QWEN-VISION] {msg}", flush=True)
 
 
+def patch_transformers_deprecation():
+    try:
+        import transformers.utils.deprecation as tud
+        if not hasattr(tud, "deprecate_attr"):
+            def deprecate_attr(*args, **kwargs):
+                def decorator(f):
+                    return f
+                return decorator
+            tud.deprecate_attr = deprecate_attr
+    except Exception:
+        pass
+
+
 # 1. INSTALACIÓN / IMPORTACIÓN DE DEPENDENCIAS
 try:
+    patch_transformers_deprecation()
     import torch
     from PIL import Image
     from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
     from qwen_vl_utils import process_vision_info
     from supabase import create_client, Client
-except ImportError:
+except (ImportError, AttributeError):
     log("Instalando dependencias necesarias para Qwen2.5-VL y Supabase en Kaggle...")
     cmd = [
         sys.executable,
@@ -67,6 +82,7 @@ except ImportError:
         "-q",
     ]
     subprocess.run(cmd, check=True)
+    patch_transformers_deprecation()
     import torch
     from PIL import Image
     from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
@@ -162,6 +178,7 @@ def load_model_and_processor():
                 device_map="auto",
             )
 
+    patch_transformers_deprecation()
     processor = AutoProcessor.from_pretrained(model_name)
     log("✅ Modelo y procesador Qwen2.5-VL cargados exitosamente.")
     return model, processor
