@@ -109,22 +109,38 @@ export default async function handler(req: any, res: any) {
     }
 
     if (!job) {
-      return res.status(404).json({ error: "Trabajo no encontrado o expirado." });
+      // Si la tarea aún no se sincroniza o es muy reciente, responder en cola para no romper el sondeo del frontend
+      return res.status(200).json({
+        success: true,
+        jobId: id,
+        status: "queued",
+        done: false,
+      });
     }
 
     // 1. Si ya está completado
     if (job.status === "done") {
-      const allUrls = Array.isArray(job.metadata?.imageUrls)
-        ? job.metadata.imageUrls
-        : job.output_url
-        ? [job.output_url]
-        : [];
+      let allUrls: string[] = [];
+      if (job.output_url) {
+        if (job.output_url.startsWith("[")) {
+          try {
+            allUrls = JSON.parse(job.output_url);
+          } catch {
+            allUrls = [job.output_url];
+          }
+        } else {
+          allUrls = [job.output_url];
+        }
+      }
+
+      const primaryUrl = allUrls[0] || job.output_url;
+
       return res.status(200).json({
         success: true,
         jobId: job.id,
         status: "done",
         done: true,
-        imageUrl: job.kind === "image" ? job.output_url : undefined,
+        imageUrl: job.kind === "image" ? primaryUrl : undefined,
         imageUrls: job.kind === "image" && allUrls.length > 0 ? allUrls : undefined,
         videoUrl: job.kind === "video" ? job.output_url : undefined,
       });
@@ -213,8 +229,7 @@ export default async function handler(req: any, res: any) {
                 .from("ai_jobs")
                 .update({
                   status: "done",
-                  output_url: finalUrls[0],
-                  metadata: { ...(job.metadata || {}), imageUrls: finalUrls },
+                  output_url: JSON.stringify(finalUrls),
                   updated_at: new Date().toISOString(),
                 })
                 .eq("id", job.id);

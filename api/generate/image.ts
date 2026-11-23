@@ -445,11 +445,11 @@ export default async function handler(req: any, res: any) {
       provider: "kaggle",
       kernel_ref: "wilycol/clonecinema-flux-image",
       prompt: enrichedPrompt,
-      metadata: { count: numCount },
     });
 
     if (insertErr) {
-      console.warn("[ai_jobs insert warning]:", insertErr.message);
+      console.error("[ai_jobs insert error]:", insertErr.message);
+      throw new Error(`Error registrando trabajo en base de datos: ${insertErr.message}`);
     }
 
     return res.status(200).json({
