@@ -39,6 +39,8 @@ export function ScriptTab({
   const [viewingFrameIdx, setViewingFrameIdx] = useState<number | null>(null);
   const [isPlayingSlideshow, setIsPlayingSlideshow] = useState(false);
   const [selectedShotIndex, setSelectedShotIndex] = useState<number | null>(null);
+  const [activeScriptShotIdx, setActiveScriptShotIdx] = useState(0);
+  const [activeFenixShotIdx, setActiveFenixShotIdx] = useState(0);
 
   const frames = project.sourceMeta?.frames || [];
 
@@ -349,53 +351,118 @@ export function ScriptTab({
             <p className="py-6 text-center text-[12px] text-zinc-600">
               Pide un plan en el chat para ver el guion aquí.
             </p>
-          ) : (
-            <div className="flex gap-2.5 overflow-x-auto pb-2.5 pt-1 scrollbar-thin">
-              {(project.shots || []).map((shot, idx) => (
-                <div
-                  key={shot.id || idx}
-                  onClick={() => setSelectedShotIndex(idx)}
-                  className="w-48 shrink-0 min-h-[148px] rounded-xl border border-zinc-800/80 bg-zinc-900/50 p-3 hover:border-signal/80 hover:bg-zinc-900/90 transition flex flex-col justify-between cursor-pointer group shadow-sm hover:shadow-signal/5"
-                  title={`Plano ${shot.number}: ${shot.title} · Clic para ver ficha completa`}
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-1.5 mb-1.5">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-zinc-800 font-display text-[10px] font-bold text-signal group-hover:bg-signal group-hover:text-black transition">
-                          {shot.number}
+          ) : (() => {
+            const shots = project.shots || [];
+            const currentIdx = Math.max(0, Math.min(activeScriptShotIdx, shots.length - 1));
+            const currentShot = shots[currentIdx];
+            const prevIdx = (currentIdx - 1 + shots.length) % shots.length;
+            const nextIdx = (currentIdx + 1) % shots.length;
+
+            return (
+              <div className="space-y-3">
+                {/* Carrusel: 1 Plano a la vez con flechas horizontales (< ; >) */}
+                <div className="relative flex items-center gap-2.5">
+                  {/* Flecha Izquierda (<) */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveScriptShotIdx(prevIdx)}
+                    className="p-2.5 shrink-0 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-signal/60 text-zinc-300 hover:text-signal transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                    title={`Ir al Plano anterior (P${shots[prevIdx]?.number})`}
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+
+                  {/* Tarjeta del Plano Activo en Pantalla */}
+                  <div
+                    onClick={() => setSelectedShotIndex(currentIdx)}
+                    className="flex-1 rounded-2xl border border-signal/60 bg-gradient-to-br from-zinc-900/90 to-zinc-950/80 p-4 hover:border-signal transition-all cursor-pointer group shadow-lg shadow-signal/5"
+                    title="Clic para abrir la ficha completa en pantalla expandida"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-signal font-display text-xs font-bold text-black shadow-sm">
+                          {currentShot.number}
                         </span>
-                        <span className="text-[11.5px] font-semibold text-zinc-100 line-clamp-1 group-hover:text-signal transition">
-                          {shot.title}
+                        <div>
+                          <h4 className="text-sm font-bold text-zinc-100 group-hover:text-signal transition">
+                            {currentShot.title}
+                          </h4>
+                          <span className="text-[10px] text-zinc-500 font-mono">
+                            Plano {currentIdx + 1} de {shots.length}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-lg bg-zinc-800/90 border border-zinc-700/60 px-2 py-0.5 text-[10.5px] font-mono text-signal">
+                          ⏱️ {currentShot.seconds}s
+                        </span>
+                        <span className="text-[10px] text-zinc-400 group-hover:text-signal font-mono transition flex items-center gap-0.5">
+                          Ficha ↗
                         </span>
                       </div>
-                      <span className="rounded bg-zinc-800/90 px-1.5 py-0.5 text-[9px] font-mono text-zinc-400 shrink-0">
-                        {shot.seconds}s
-                      </span>
                     </div>
 
-                    <div className="text-[9.5px] text-zinc-500 font-mono line-clamp-1 mb-1">
-                      📷 {shot.camera}
-                    </div>
+                    <div className="space-y-2 mt-3">
+                      <div className="text-[11px] text-zinc-400 font-mono flex items-center gap-1.5 bg-zinc-900/80 px-2.5 py-1 rounded-lg border border-zinc-800/60">
+                        <span className="text-signal">📷</span> {currentShot.camera}
+                      </div>
 
-                    <p className="text-[10.5px] leading-relaxed text-zinc-300 line-clamp-2">
-                      {shot.action}
-                    </p>
-
-                    {shot.voiceover && (
-                      <p className="mt-1 text-[10px] text-zinc-400 italic line-clamp-1 border-l-2 border-signal/40 pl-1.5">
-                        VO: "{shot.voiceover}"
+                      <p className="text-[12px] leading-relaxed text-zinc-200">
+                        {currentShot.action}
                       </p>
-                    )}
+
+                      {currentShot.voiceover && (
+                        <div className="rounded-lg border border-signal/25 bg-signal/[0.04] px-3 py-1.5 text-[11.5px] text-zinc-100 italic">
+                          <span className="text-signal/80 font-bold not-italic mr-1.5">VO:</span>
+                          "{currentShot.voiceover}"
+                        </div>
+                      )}
+
+                      {currentShot.sfx && (
+                        <div className="pt-1.5 border-t border-zinc-800/60 text-[10px] text-zinc-400 font-mono flex items-center gap-1.5">
+                          <span>🎵</span> {currentShot.sfx} {currentShot.music ? `— ${currentShot.music}` : ""}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="mt-2 pt-1.5 border-t border-zinc-800/60 flex items-center justify-between text-[9px] text-zinc-500 font-mono">
-                    <span className="line-clamp-1">{shot.sfx ? `🎵 ${shot.sfx}` : `Plano ${shot.number}`}</span>
-                    <span className="text-signal opacity-0 group-hover:opacity-100 transition shrink-0 ml-1">Ver ficha ↗</span>
+                  {/* Flecha Derecha (>) */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveScriptShotIdx(nextIdx)}
+                    className="p-2.5 shrink-0 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-signal/60 text-zinc-300 hover:text-signal transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                    title={`Ir al Plano siguiente (P${shots[nextIdx]?.number})`}
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+
+                {/* Tira inferior de botones/pills de selección directa */}
+                <div className="flex items-center justify-between gap-1.5 pt-1">
+                  <span className="text-[10px] font-mono text-zinc-500 shrink-0">
+                    Navegador ({shots.length}):
+                  </span>
+                  <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
+                    {shots.map((s, i) => (
+                      <button
+                        key={s.id || i}
+                        type="button"
+                        onClick={() => setActiveScriptShotIdx(i)}
+                        className={`h-6 px-2 rounded-md text-[10px] font-mono font-bold transition-all cursor-pointer shrink-0 ${
+                          i === currentIdx
+                            ? "bg-signal text-black shadow-xs scale-105"
+                            : "bg-zinc-900 border border-zinc-800/80 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                        }`}
+                        title={`Ir al Plano ${s.number}`}
+                      >
+                        P{s.number}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            );
+          })()}
         </Section>
       </div>
 
@@ -594,95 +661,147 @@ export function ScriptTab({
                 </div>
               )}
 
-              {/* Riel de fotogramas si ya existen minados */}
-              {project.sourceMeta?.frames && project.sourceMeta.frames.length > 0 && (
-                <div className="mt-3.5 pt-3 border-t border-zinc-800/60">
-                  <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-300 mb-2">
-                    <span className="flex items-center gap-1.5 text-signal">
-                      <span>🦅</span> Planos del Fénix ({project.sourceMeta.frames.length})
-                    </span>
+              {/* Riel de fotogramas del Fénix en carrusel de 1 en pantalla con flechas (< ; >) */}
+              {project.sourceMeta?.frames && project.sourceMeta.frames.length > 0 && (() => {
+                const fList = project.sourceMeta.frames;
+                const currentFIdx = Math.max(0, Math.min(activeFenixShotIdx, fList.length - 1));
+                const currentFrame = fList[currentFIdx];
+                const prevFIdx = (currentFIdx - 1 + fList.length) % fList.length;
+                const nextFIdx = (currentFIdx + 1) % fList.length;
+                const matchingShot =
+                  (project.shots || []).find((s) => s.number === currentFrame.shotNumber) ||
+                  (project.shots || [])[currentFIdx];
+
+                return (
+                  <div className="mt-3.5 pt-3 border-t border-zinc-800/60 space-y-3">
+                    <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-300">
+                      <span className="flex items-center gap-1.5 text-signal font-mono">
+                        <span>🦅</span> Fotograma {currentFIdx + 1} de {fList.length} ({currentFrame.timestampSec}s)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setViewingFrameIdx(currentFIdx);
+                          setIsPlayingSlideshow(true);
+                        }}
+                        className="flex items-center gap-1.5 rounded-lg bg-signal/15 hover:bg-signal/25 border border-signal/40 px-2 py-1 text-[10px] font-bold text-signal transition cursor-pointer"
+                        title="Reproducir secuencia de fotogramas cada 3 segundos"
+                      >
+                        <Play size={10} fill="currentColor" /> Slideshow (3s)
+                      </button>
+                    </div>
+
+                    {/* Carrusel Fénix: 1 en pantalla con flechas laterales (< ; >) */}
+                    <div className="relative flex items-center gap-2.5">
+                      {/* Flecha Izquierda (<) */}
+                      <button
+                        type="button"
+                        onClick={() => setActiveFenixShotIdx(prevFIdx)}
+                        className="p-2.5 shrink-0 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-signal/60 text-zinc-300 hover:text-signal transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                        title={`Ver fotograma anterior (P${fList[prevFIdx]?.shotNumber})`}
+                      >
+                        <ChevronLeft size={20} />
+                      </button>
+
+                      {/* Tarjeta del Fotograma + Plano Sincronizado */}
+                      <div className="flex-1 flex flex-col gap-2 rounded-2xl border border-signal/50 bg-gradient-to-br from-zinc-900/90 to-zinc-950/80 p-3 shadow-lg shadow-signal/5">
+                        {/* Fotograma grande */}
+                        <div
+                          onClick={() => {
+                            setViewingFrameIdx(currentFIdx);
+                            setIsPlayingSlideshow(false);
+                          }}
+                          className="relative w-full h-44 rounded-xl overflow-hidden border border-zinc-800 hover:border-signal group cursor-pointer transition shadow-md bg-black/60 flex items-center justify-center"
+                          title="Clic para ampliar fotograma"
+                        >
+                          <img
+                            src={currentFrame.frameUrl}
+                            alt={`Plano ${currentFrame.shotNumber}`}
+                            className="w-full h-full object-contain group-hover:scale-105 transition duration-300"
+                          />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                            <Maximize2 size={18} className="text-white" />
+                          </div>
+                          <div className="absolute bottom-2 left-2 rounded-lg bg-black/85 px-2 py-0.5 text-[10px] font-mono text-zinc-200 border border-white/10 backdrop-blur-xs">
+                            P{currentFrame.shotNumber} ({currentFrame.timestampSec}s)
+                          </div>
+                        </div>
+
+                        {/* Ficha técnica compacta debajo */}
+                        {matchingShot ? (
+                          <div
+                            onClick={() => setSelectedShotIndex(currentFIdx)}
+                            className="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-2.5 hover:border-signal/80 hover:bg-zinc-900/90 cursor-pointer transition flex flex-col justify-between group"
+                            title={`Ver ficha completa del Plano ${matchingShot.number}`}
+                          >
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="text-[11px] font-bold text-signal font-mono">
+                                P{matchingShot.number}: {matchingShot.title}
+                              </span>
+                              <span className="text-[9.5px] text-zinc-400 group-hover:text-signal font-mono transition">
+                                Ficha ↗
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-zinc-400 font-mono line-clamp-1 mb-1">
+                              📷 {matchingShot.camera}
+                            </div>
+                            <p className="text-[10.5px] text-zinc-300 line-clamp-2 leading-relaxed">
+                              {matchingShot.action}
+                            </p>
+                            {matchingShot.voiceover && (
+                              <div className="mt-1 text-[10px] text-zinc-300 italic border-l-2 border-signal/40 pl-1.5 line-clamp-1">
+                                VO: "{matchingShot.voiceover}"
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-dashed border-zinc-800 p-2 text-center text-[10.5px] text-zinc-600">
+                            Plano {currentFrame.shotNumber} en generación...
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Flecha Derecha (>) */}
+                      <button
+                        type="button"
+                        onClick={() => setActiveFenixShotIdx(nextFIdx)}
+                        className="p-2.5 shrink-0 rounded-xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-signal/60 text-zinc-300 hover:text-signal transition-all shadow-md cursor-pointer hover:scale-105 active:scale-95"
+                        title={`Ver fotograma siguiente (P${fList[nextFIdx]?.shotNumber})`}
+                      >
+                        <ChevronRight size={20} />
+                      </button>
+                    </div>
+
+                    {/* Tira inferior de miniaturas para salto directo */}
+                    <div className="flex items-center justify-between gap-1.5 pt-1">
+                      <span className="text-[10px] font-mono text-zinc-500 shrink-0">
+                        Frames ({fList.length}):
+                      </span>
+                      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
+                        {fList.map((f, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setActiveFenixShotIdx(i)}
+                            className={`relative shrink-0 w-8 h-10 rounded overflow-hidden border transition-all cursor-pointer ${
+                              i === currentFIdx
+                                ? "border-signal ring-2 ring-signal/50 scale-105"
+                                : "border-zinc-800 opacity-50 hover:opacity-100"
+                            }`}
+                            title={`Saltar a Plano ${f.shotNumber}`}
+                          >
+                            <img src={f.frameUrl} alt="" className="w-full h-full object-cover" />
+                            <span className="absolute bottom-0 inset-x-0 bg-black/80 text-[7px] font-mono text-center text-zinc-200">
+                              {f.shotNumber}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <button
                       type="button"
-                      onClick={() => {
-                        setViewingFrameIdx(0);
-                        setIsPlayingSlideshow(true);
-                      }}
-                      className="flex items-center gap-1.5 rounded-lg bg-signal/15 hover:bg-signal/25 border border-signal/40 px-2 py-1 text-[10px] font-bold text-signal transition cursor-pointer"
-                      title="Reproducir secuencia de fotogramas cada 3 segundos"
-                    >
-                      <Play size={10} fill="currentColor" /> Reproducir ADN (3s)
-                    </button>
-                  </div>
-
-                  <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-thin">
-                    {project.sourceMeta.frames.map((f, idx) => {
-                      const matchingShot =
-                        (project.shots || []).find((s) => s.number === f.shotNumber) ||
-                        (project.shots || [])[idx];
-                      return (
-                        <div key={idx} className="shrink-0 w-44 flex flex-col gap-1.5">
-                          {/* Captura de fotograma del Fénix */}
-                          <div
-                            onClick={() => {
-                              setViewingFrameIdx(idx);
-                              setIsPlayingSlideshow(false);
-                            }}
-                            className="relative w-full h-24 rounded-xl overflow-hidden border border-zinc-800 hover:border-signal group cursor-pointer transition shadow-sm"
-                            title={`Fotograma Plano ${f.shotNumber} (${f.timestampSec}s) · Clic para ampliar`}
-                          >
-                            <img
-                              src={f.frameUrl}
-                              alt={`Plano ${f.shotNumber}`}
-                              className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                            />
-                            <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                              <Maximize2 size={14} className="text-white" />
-                            </div>
-                            <div className="absolute bottom-1 left-1 right-1 rounded bg-black/85 px-1.5 py-0.5 text-[9px] font-mono text-center text-zinc-200 backdrop-blur-xs">
-                              P{f.shotNumber} ({f.timestampSec}s)
-                            </div>
-                          </div>
-
-                          {/* Tarjeta del plano sincronizada debajo */}
-                          {matchingShot ? (
-                            <div
-                              onClick={() => setSelectedShotIndex(idx)}
-                              className="rounded-xl border border-zinc-800/80 bg-zinc-900/60 p-2.5 hover:border-signal/80 hover:bg-zinc-900/90 cursor-pointer transition flex flex-col justify-between min-h-[96px] group shadow-xs"
-                              title={`Ver ficha completa del Plano ${matchingShot.number}`}
-                            >
-                              <div>
-                                <div className="flex items-center justify-between gap-1 mb-1">
-                                  <span className="text-[10px] font-bold text-signal font-mono">
-                                    P{matchingShot.number} · {matchingShot.seconds}s
-                                  </span>
-                                  <span className="text-[9px] text-zinc-500 font-mono group-hover:text-signal transition">
-                                    Ficha ↗
-                                  </span>
-                                </div>
-                                <div className="text-[11px] font-semibold text-zinc-200 line-clamp-1 group-hover:text-signal transition">
-                                  {matchingShot.title}
-                                </div>
-                                <div className="text-[9.5px] text-zinc-500 font-mono line-clamp-1 mt-0.5">
-                                  📷 {matchingShot.camera}
-                                </div>
-                                <p className="text-[10px] text-zinc-400 line-clamp-2 mt-1 leading-snug">
-                                  {matchingShot.action}
-                                </p>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="rounded-xl border border-dashed border-zinc-800/80 p-2.5 text-center text-[10px] text-zinc-600 min-h-[96px] flex items-center justify-center">
-                              P{f.shotNumber} en generación...
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleReconstructWithFenix(project.sourceMeta!.frames!)}
+                      onClick={() => handleReconstructWithFenix(project.sourceMeta!.frames!)}
                     disabled={reconstructing}
                     className="w-full mt-3 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500/20 via-signal/30 to-emerald-500/20 border border-signal/60 py-2.5 px-3 text-[12px] font-bold text-signal hover:bg-signal hover:text-black transition-all shadow-lg cursor-pointer disabled:opacity-50"
                   >
@@ -694,7 +813,8 @@ export function ScriptTab({
                     </span>
                   </button>
                 </div>
-              )}
+              );
+            })()}
             </div>
           )}
         </div>
