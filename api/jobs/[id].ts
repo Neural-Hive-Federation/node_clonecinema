@@ -27,16 +27,22 @@ function getKaggleAuthHeaders(): HeadersInit {
 async function getKaggleKernelStatus(params: {
   userName: string;
   kernelSlug: string;
+  versionNumber?: number;
 }): Promise<string> {
   const headers = getKaggleAuthHeaders();
+
+  const body: any = {
+    userName: params.userName,
+    kernelSlug: params.kernelSlug,
+  };
+  if (params.versionNumber) {
+    body.versionNumber = params.versionNumber;
+  }
 
   const res = await fetch(`${KAGGLE_API_BASE}/kernels.KernelsApiService/GetKernelSessionStatus`, {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      userName: params.userName,
-      kernelSlug: params.kernelSlug,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -51,16 +57,22 @@ async function getKaggleKernelStatus(params: {
 async function getKaggleKernelOutput(params: {
   userName: string;
   kernelSlug: string;
+  versionNumber?: number;
 }): Promise<{ files?: { fileName: string; url: string }[]; log?: string }> {
   const headers = getKaggleAuthHeaders();
+
+  const body: any = {
+    userName: params.userName,
+    kernelSlug: params.kernelSlug,
+  };
+  if (params.versionNumber) {
+    body.versionNumber = params.versionNumber;
+  }
 
   const res = await fetch(`${KAGGLE_API_BASE}/kernels.KernelsApiService/ListKernelSessionOutput`, {
     method: "POST",
     headers,
-    body: JSON.stringify({
-      userName: params.userName,
-      kernelSlug: params.kernelSlug,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -160,26 +172,28 @@ export default async function handler(req: any, res: any) {
     // 3. Si es un trabajo de Kaggle, consultamos el estado real del cuaderno
     if (job.provider === "kaggle") {
       const userName = process.env.KAGGLE_USERNAME || "wilycol";
-      const kernelSlug = job.kernel_ref ? job.kernel_ref.split("/").pop()! : "clonecinema-flux-image";
+      const [refPart, verPart] = (job.kernel_ref || "").split("@");
+      const kernelSlug = refPart ? refPart.split("/").pop()! : "clonecinema-flux-image";
+      const versionNumber = verPart ? parseInt(verPart, 10) : undefined;
 
       try {
-        const kStatus = await getKaggleKernelStatus({ userName, kernelSlug });
+        const kStatus = await getKaggleKernelStatus({ userName, kernelSlug, versionNumber });
 
         if (kStatus === "COMPLETE") {
-          const output = await getKaggleKernelOutput({ userName, kernelSlug });
+          const output = await getKaggleKernelOutput({ userName, kernelSlug, versionNumber });
 
-          // Validar que el resultado pertenezca a ESTE trabajo y no a una sesión previa en caché
+          // Si versionNumber está fijado, el resultado pertenece a esta sesión exacta.
+          // Si no está fijado (jobs legacy), validamos con result.json
           const resultFile = output.files?.find((f) => f.fileName === "result.json");
           const jobAgeMs = Date.now() - new Date(job.created_at).getTime();
 
-          if (resultFile && resultFile.url) {
+          if (!versionNumber && resultFile && resultFile.url) {
             try {
               const rjRes = await fetch(resultFile.url);
               if (rjRes.ok) {
                 const rjData = (await rjRes.json()) as any;
                 if (rjData.job_id && rjData.job_id !== job.id) {
-                  // Si el trabajo lleva menos de 210 segundos (3.5 min), Kaggle puede estar aún aprovisionando el contenedor GPU
-                  if (jobAgeMs < 210000) {
+                  if (jobAgeMs < 12 * 60 * 1000) {
                     return res.status(200).json({
                       success: true,
                       jobId: job.id,
@@ -187,7 +201,6 @@ export default async function handler(req: any, res: any) {
                       done: false,
                     });
                   } else {
-                    // Más de 3.5 min y Kaggle reporta COMPLETE con un job_id viejo -> la nueva sesión no corrió o fue rechazada
                     const staleMsg = "La sesión en Kaggle no inició la nueva tarea o la cola fue rechazada.";
                     await supabase
                       .from("ai_jobs")

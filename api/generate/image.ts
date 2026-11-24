@@ -438,12 +438,16 @@ export default async function handler(req: any, res: any) {
     });
     console.log(`[Kaggle Submit] Versión ${versionNumber} en ejecución en GPU.`);
 
+    const kernelRefWithVersion = versionNumber
+      ? `wilycol/clonecinema-flux-image@${versionNumber}`
+      : "wilycol/clonecinema-flux-image";
+
     const { error: insertErr } = await supabase.from("ai_jobs").insert({
       id: jobId,
       kind: "image",
       status: "running",
       provider: "kaggle",
-      kernel_ref: "wilycol/clonecinema-flux-image",
+      kernel_ref: kernelRefWithVersion,
       prompt: enrichedPrompt,
     });
 
