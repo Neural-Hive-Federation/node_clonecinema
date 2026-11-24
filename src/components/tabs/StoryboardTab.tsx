@@ -22,6 +22,7 @@ export function StoryboardTab({
   const [error, setError] = useState<string | null>(null);
   const [bulk, setBulk] = useState(false);
   const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; title: string } | null>(null);
+  const [bulkJobStatus, setBulkJobStatus] = useState<string>("queued");
   const [selectedForBatch, setSelectedForBatch] = useState<string[]>([]);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const abortBulkRef = useRef(false);
@@ -226,7 +227,15 @@ export function StoryboardTab({
         const shotRefData = getReferencesForShot(currentShot);
         const loraBonus = (useMultiref && shotRefData.char?.loraConfig?.triggerWord) ? `, ${shotRefData.char.loraConfig.triggerWord}` : "";
         const finalPrompt = `${currentShot.imagePrompt}${loraBonus}`;
-        const imageUrl = await generateImage(finalPrompt, project.format, shotRefData.refs, useMultiref ? 0.52 : undefined, signal);
+        setBulkJobStatus("queued");
+        const imageUrl = await generateImage(
+          finalPrompt,
+          project.format,
+          shotRefData.refs,
+          useMultiref ? 0.52 : undefined,
+          signal,
+          (st) => setBulkJobStatus(st)
+        );
         updateShot(currentShot.id, { imageUrl });
         void refreshAccount();
       } catch (err: any) {
@@ -379,14 +388,17 @@ export function StoryboardTab({
           </div>
 
           {bulkProgress && (
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-signal/40 bg-signal/10 px-4 py-2.5 text-[12px] text-zinc-100 shadow-md animate-pulse">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-signal/40 bg-signal/10 px-4 py-2.5 text-[12px] text-zinc-100 shadow-md">
               <div className="flex items-center gap-2.5 overflow-hidden">
                 <Spinner size={14} />
                 <span className="font-bold text-signal shrink-0">
                   Generando plano {bulkProgress.current} de {bulkProgress.total}:
                 </span>
-                <span className="text-zinc-300 truncate max-w-[280px] sm:max-w-[420px]">
+                <span className="text-zinc-300 truncate max-w-[180px] sm:max-w-[320px]">
                   "{bulkProgress.title}"
+                </span>
+                <span className="shrink-0 rounded-md border border-signal/30 bg-black/60 px-2 py-0.5 text-[10px] font-mono text-signal">
+                  {bulkJobStatus === "running" ? "⚡ En GPU ejecutando..." : "⏳ En cola de Kaggle..."}
                 </span>
               </div>
               <button

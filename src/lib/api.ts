@@ -126,17 +126,20 @@ interface JobStatus {
 }
 
 const POLL_MS = 3000;
-const MAX_WAIT_MS = 14 * 60 * 1000; // 14 minutos: permite el arranque en frío (cold start) y descarga de pesos iniciales de Playground v2.5 sin falsos cortes
+const MAX_QUEUE_MS = 35 * 60 * 1000; // Hasta 35 minutos tolerando cola de espera de GPU en Kaggle durante horas pico
+const MAX_RUNNING_MS = 12 * 60 * 1000; // Hasta 12 minutos una vez que la GPU está activamente ejecutando
 
 export async function waitForJobFull(
   jobId: string,
   kind: "image" | "video",
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onStatusUpdate?: (status: string) => void
 ): Promise<JobStatus> {
   const started = Date.now();
+  let runningStarted: number | null = null;
   let lastStatus = "";
 
-  while (Date.now() - started < MAX_WAIT_MS) {
+  while (true) {
     if (signal?.aborted) {
       throw new Error("Generación cancelada por el usuario.");
     }
@@ -146,19 +149,40 @@ export async function waitForJobFull(
     if (status.done) {
       return status;
     }
-    lastStatus = status.status || lastStatus;
+    lastStatus = (status.status || "queued").toLowerCase();
+    if (onStatusUpdate) {
+      onStatusUpdate(lastStatus);
+    }
+
+    if (lastStatus === "running" && !runningStarted) {
+      runningStarted = Date.now();
+    }
+
+    if (runningStarted) {
+      if (Date.now() - runningStarted > MAX_RUNNING_MS) {
+        throw new Error(`La tarea se excedió del tiempo límite en GPU (${Math.round(MAX_RUNNING_MS / 60000)} min).`);
+      }
+    } else {
+      if (Date.now() - started > MAX_QUEUE_MS) {
+        throw new Error(`La tarea superó el tiempo máximo de cola (${Math.round(MAX_QUEUE_MS / 60000)} min). Kaggle está saturado.`);
+      }
+    }
+
     if (signal?.aborted) {
       throw new Error("Generación cancelada por el usuario.");
     }
     await new Promise((r) => setTimeout(r, POLL_MS));
   }
-
-  throw new Error(`La tarea sigue en cola (${lastStatus || "pendiente"}) tras superar el tiempo límite (14 minutos). Puedes reintentarla.`);
 }
 
 /** Sondea un job hasta que termina. Devuelve la URL del artefacto. */
-async function waitForJob(jobId: string, kind: "image" | "video", signal?: AbortSignal): Promise<string> {
-  const status = await waitForJobFull(jobId, kind, signal);
+async function waitForJob(
+  jobId: string,
+  kind: "image" | "video",
+  signal?: AbortSignal,
+  onStatusUpdate?: (status: string) => void
+): Promise<string> {
+  const status = await waitForJobFull(jobId, kind, signal, onStatusUpdate);
   const url = kind === "image" ? status.imageUrl : status.videoUrl;
   if (url) return url;
   throw new Error("La tarea terminó sin entregar el archivo.");
@@ -169,7 +193,8 @@ export async function generateImage(
   aspectRatio: string,
   references?: { character?: string; location?: string; prop?: string },
   strength?: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  onStatusUpdate?: (status: string) => void
 ): Promise<string> {
   if (signal?.aborted) throw new Error("Generación cancelada por el usuario.");
   const data = await post<{
@@ -180,7 +205,7 @@ export async function generateImage(
   }>("/api/generate/image", { prompt, aspectRatio, references, strength });
 
   if (data.imageUrl) return data.imageUrl;
-  if (data.jobId) return waitForJob(data.jobId, "image", signal);
+  if (data.jobId) return waitForJob(data.jobId, "image", signal, onStatusUpdate);
   throw new Error(data.error || "Sin imagen");
 }
 
