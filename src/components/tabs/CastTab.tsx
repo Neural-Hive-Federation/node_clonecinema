@@ -8,6 +8,7 @@ import { uid } from "../../lib/project";
 import { Section, Spinner, ImageLightbox } from "../ui";
 import { CastingPickerModal } from "../CastingPickerModal";
 import { LORA_PRESETS } from "../../lib/loraPresets";
+import { synthesizeCharacterPrompt, synthesizeLocationPrompt, synthesizePropPrompt } from "../../lib/coherence";
 
 export function CastTab({
   project,
@@ -58,10 +59,7 @@ export function CastTab({
     setBusyChr(character.id);
     setError(null);
     try {
-      const loraBonus = character.loraConfig?.triggerWord ? `, ${character.loraConfig.triggerWord}` : "";
-      const prompt = `Cinematic character portrait photo, ${character.name}: ${character.description}. ${
-        character.wardrobe ? `Wardrobe: ${character.wardrobe}.` : ""
-      }${loraBonus} 8k resolution, raw 35mm film headshot, dramatic studio lighting, sharp facial features, natural skin texture`;
+      const prompt = synthesizeCharacterPrompt(character, project.style);
 
       // Se envían 4 solicitudes independientes en paralelo con el mismo prompt
       const urls = await generateImageVariations(prompt, "1:1", 4);
@@ -94,7 +92,7 @@ export function CastTab({
     setBusyLoc(location.id);
     setError(null);
     try {
-      const prompt = `Cinematic environment film still, ${location.name}, ${location.timeOfDay} lighting atmosphere, ${location.description}, architectural and landscape photography, hyper-detailed, 8k resolution, cinematic`;
+      const prompt = synthesizeLocationPrompt(location, project.style);
       const imageUrl = await generateImage(prompt, project.format === "16:9" ? "16:9" : "9:16");
       updateLocation(location.id, { imageUrl });
       void refreshAccount();
@@ -114,7 +112,7 @@ export function CastTab({
     setBusyProp(prop.id);
     setError(null);
     try {
-      const prompt = `Cinematic hero prop studio shot, ${prop.name}, category: ${prop.category}, ${prop.description}, detailed materials, dramatic rim lighting, product commercial photography, 8k resolution`;
+      const prompt = synthesizePropPrompt(prop, project.style);
       const imageUrl = await generateImage(prompt, "1:1");
       updateProp(prop.id, { imageUrl });
       void refreshAccount();

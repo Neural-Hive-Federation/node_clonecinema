@@ -2,6 +2,7 @@ import { analyzeLink, generateImage, generateSpeech, startVideo, videoStatus } f
 import { applyPlan, uid } from "./project";
 import { runContinuityAudit } from "./continuityAudit";
 import { MUSIC_PRESETS } from "../data/musicTracks";
+import { synthesizeCharacterPrompt, synthesizeLocationPrompt, synthesizePropPrompt, synthesizeShotPrompt } from "./coherence";
 import type { Project, Shot } from "../types";
 
 export interface AutoPilotLog {
@@ -165,7 +166,7 @@ export async function runFullAutoPilot(
       const mainChar = currentProject.characters[0];
       addLog(`Diseñando aspecto de ${mainChar.name}...`);
       try {
-        const charPrompt = `${mainChar.description}, hyperrealistic cinematic portrait, 8k, professional studio lighting`;
+        const charPrompt = synthesizeCharacterPrompt(mainChar, currentProject.style);
         const avatarUrl = await generateImage(charPrompt, currentProject.format);
         if (avatarUrl) {
           currentProject.characters[0] = { ...mainChar, avatarUrl };
@@ -181,7 +182,7 @@ export async function runFullAutoPilot(
       const mainLoc = currentProject.locations[0];
       addLog(`Diseñando concepto del set: «${mainLoc.name}»...`);
       try {
-        const locPrompt = `Cinematic environment concept art, 8k, photorealistic: ${mainLoc.description}, wide establishing shot, architectural lighting, moody atmosphere`;
+        const locPrompt = synthesizeLocationPrompt(mainLoc, currentProject.style);
         const locImgUrl = await generateImage(locPrompt, currentProject.format);
         if (locImgUrl) {
           currentProject.locations[0] = { ...mainLoc, imageUrl: locImgUrl };
@@ -197,7 +198,7 @@ export async function runFullAutoPilot(
       const mainProp = currentProject.props[0];
       addLog(`Diseñando objeto héroe: «${mainProp.name}»...`);
       try {
-        const propPrompt = `Macro product photography, 8k, studio lighting: ${mainProp.description}, hyper-detailed prop on dark reflective pedestal, volumetric rays`;
+        const propPrompt = synthesizePropPrompt(mainProp, currentProject.style);
         const propImgUrl = await generateImage(propPrompt, currentProject.format);
         if (propImgUrl) {
           currentProject.props[0] = { ...mainProp, imageUrl: propImgUrl };
@@ -229,11 +230,16 @@ export async function runFullAutoPilot(
         );
 
         try {
-          const refs = currentProject.characters[0]?.avatarUrl
-            ? { character: currentProject.characters[0].avatarUrl }
+          const char = currentProject.characters.find((c) => c.id === shot.characterId) || currentProject.characters[0];
+          const loc = currentProject.locations.find((l) => l.id === shot.locationId) || currentProject.locations[0];
+          const prop = currentProject.props.find((p) => p.id === shot.propId) || currentProject.props[0];
+
+          const refs = char?.avatarUrl
+            ? { character: char.avatarUrl }
             : undefined;
 
-          const imgUrl = await generateImage(shot.imagePrompt, currentProject.format, refs);
+          const synthesizedPrompt = synthesizeShotPrompt(shot, currentProject, { char, loc, prop });
+          const imgUrl = await generateImage(synthesizedPrompt, currentProject.format, refs);
           if (imgUrl) {
             currentProject.shots[i] = { ...shot, imageUrl: imgUrl };
             addLog(`Keyframe Plano ${shot.number} listo.`, "success");

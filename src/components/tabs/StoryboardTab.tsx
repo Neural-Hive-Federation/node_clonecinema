@@ -6,6 +6,7 @@ import { uploadImageFile } from "../../lib/imageUpload";
 import { useSession } from "../../context/SessionContext";
 import { uid } from "../../lib/project";
 import { Field, FORMAT_CLASS, Section, Spinner, EmptyState, ImageLightbox } from "../ui";
+import { synthesizeShotPrompt } from "../../lib/coherence";
 
 export function StoryboardTab({
   project,
@@ -169,8 +170,7 @@ export function StoryboardTab({
     setLoadingIds((prev) => [...prev, shot.id]);
     try {
       const shotRefData = getReferencesForShot(shot);
-      const loraBonus = (useMultiref && shotRefData.char?.loraConfig?.triggerWord) ? `, ${shotRefData.char.loraConfig.triggerWord}` : "";
-      const finalPrompt = `${shot.imagePrompt}${loraBonus}`;
+      const finalPrompt = synthesizeShotPrompt(shot, project, shotRefData);
       const imageUrl = await generateImage(finalPrompt, project.format, shotRefData.refs, useMultiref ? 0.52 : undefined);
       updateShot(shot.id, { imageUrl });
       void refreshAccount();
@@ -225,8 +225,7 @@ export function StoryboardTab({
 
       try {
         const shotRefData = getReferencesForShot(currentShot);
-        const loraBonus = (useMultiref && shotRefData.char?.loraConfig?.triggerWord) ? `, ${shotRefData.char.loraConfig.triggerWord}` : "";
-        const finalPrompt = `${currentShot.imagePrompt}${loraBonus}`;
+        const finalPrompt = synthesizeShotPrompt(currentShot, project, shotRefData);
         setBulkJobStatus("queued");
         const imageUrl = await generateImage(
           finalPrompt,
