@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ImageIcon, MapPin, Maximize2, Package, Plus, Sparkles, Trash2, Upload, UserCheck, UserRound, Zap } from "lucide-react";
+import { Film, ImageIcon, MapPin, Maximize2, Package, Plus, Sparkles, Trash2, Upload, UserCheck, UserRound, Zap } from "lucide-react";
 import type { Character, LocationRef, Project, ProjectUpdater, PropItem } from "../../types";
 import { generateImage, generateImageVariations, isPaymentRequired } from "../../lib/api";
 import { uploadImageFile } from "../../lib/imageUpload";
@@ -7,6 +7,7 @@ import { useSession } from "../../context/SessionContext";
 import { uid } from "../../lib/project";
 import { Section, Spinner, ImageLightbox } from "../ui";
 import { CastingPickerModal } from "../CastingPickerModal";
+import { SourceFramePickerModal } from "../SourceFramePickerModal";
 import { LORA_PRESETS } from "../../lib/loraPresets";
 import { synthesizeCharacterPrompt, synthesizeLocationPrompt, synthesizePropPrompt } from "../../lib/coherence";
 
@@ -30,6 +31,11 @@ export function CastTab({
   const [castingTarget, setCastingTarget] = useState<{
     character: Character;
     variations: string[];
+  } | null>(null);
+  const [sourceFrameTarget, setSourceFrameTarget] = useState<{
+    type: "character" | "location" | "prop";
+    id: string;
+    name: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -327,6 +333,18 @@ export function CastTab({
                           <Upload size={11} className="text-zinc-400" /> Subir foto
                         </label>
 
+                        {/* Tomar fotograma del video fuente */}
+                        {project.sourceMeta?.frames && project.sourceMeta.frames.length > 0 && (
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10.5px] font-semibold text-amber-300 hover:bg-amber-500/20 hover:border-amber-400 transition cursor-pointer"
+                            onClick={() => setSourceFrameTarget({ type: "character", id: c.id, name: c.name })}
+                            title="Seleccionar el fotograma real del video fuente original como rostro oficial"
+                          >
+                            <Film size={11} className="text-amber-400" /> Tomar del video fuente
+                          </button>
+                        )}
+
                         {c.avatarUrl && (
                           <button
                             type="button"
@@ -613,6 +631,18 @@ export function CastTab({
                           >
                             <Upload size={11} className="text-zinc-400" /> Subir foto
                           </label>
+
+                          {/* Tomar fotograma del video fuente */}
+                          {project.sourceMeta?.frames && project.sourceMeta.frames.length > 0 && (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10.5px] font-semibold text-amber-300 hover:bg-amber-500/20 hover:border-amber-400 transition cursor-pointer"
+                              onClick={() => setSourceFrameTarget({ type: "location", id: l.id, name: l.name })}
+                              title="Seleccionar un fotograma del video fuente como referencia del set"
+                            >
+                              <Film size={11} className="text-amber-400" /> Tomar del video fuente
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -771,6 +801,18 @@ export function CastTab({
                           >
                             <Upload size={11} className="text-zinc-400" /> Subir foto
                           </label>
+
+                          {/* Tomar fotograma del video fuente */}
+                          {project.sourceMeta?.frames && project.sourceMeta.frames.length > 0 && (
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10.5px] font-semibold text-amber-300 hover:bg-amber-500/20 hover:border-amber-400 transition cursor-pointer"
+                              onClick={() => setSourceFrameTarget({ type: "prop", id: p.id, name: p.name })}
+                              title="Seleccionar un fotograma del video fuente como referencia del objeto"
+                            >
+                              <Film size={11} className="text-amber-400" /> Tomar del video fuente
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -835,6 +877,31 @@ export function CastTab({
             setCastingTarget(null);
           }}
           onClose={() => setCastingTarget(null)}
+        />
+      )}
+
+      {/* Modal para Tomar Fotograma del Video Fuente */}
+      {sourceFrameTarget && project.sourceMeta?.frames && (
+        <SourceFramePickerModal
+          frames={project.sourceMeta.frames}
+          targetTitle={sourceFrameTarget.name}
+          targetType={sourceFrameTarget.type}
+          onSelectFrame={(selectedUrl) => {
+            if (sourceFrameTarget.type === "character") {
+              const c = project.characters.find((x) => x.id === sourceFrameTarget.id);
+              const existing = c?.castingVariations || [];
+              updateCharacter(sourceFrameTarget.id, {
+                avatarUrl: selectedUrl,
+                castingVariations: [selectedUrl, ...existing.filter((u) => u !== selectedUrl)],
+              });
+            } else if (sourceFrameTarget.type === "location") {
+              updateLocation(sourceFrameTarget.id, { imageUrl: selectedUrl });
+            } else if (sourceFrameTarget.type === "prop") {
+              updateProp(sourceFrameTarget.id, { imageUrl: selectedUrl });
+            }
+            setSourceFrameTarget(null);
+          }}
+          onClose={() => setSourceFrameTarget(null)}
         />
       )}
     </>

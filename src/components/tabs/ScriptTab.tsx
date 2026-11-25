@@ -41,6 +41,7 @@ export function ScriptTab({
   const [selectedShotIndex, setSelectedShotIndex] = useState<number | null>(null);
   const [activeScriptShotIdx, setActiveScriptShotIdx] = useState(0);
   const [activeFenixShotIdx, setActiveFenixShotIdx] = useState(0);
+  const [assignSuccessMsg, setAssignSuccessMsg] = useState<string | null>(null);
 
   const frames = project.sourceMeta?.frames || [];
 
@@ -907,6 +908,54 @@ export function ScriptTab({
                   Usa <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">←</kbd> <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">→</kbd> o <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300">Espacio</kbd>
                 </div>
               </div>
+
+              {/* Asignación directa a Personajes / Reparto */}
+              {project.characters && project.characters.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-zinc-800/80">
+                  <span className="text-[10.5px] font-mono font-bold text-amber-400 flex items-center gap-1 shrink-0">
+                    👑 Asignar este fotograma como rostro a:
+                  </span>
+                  {project.characters.map((c) => {
+                    const isAssigned = c.avatarUrl === frames[viewingFrameIdx].frameUrl;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          const url = frames[viewingFrameIdx].frameUrl;
+                          patch((prev) => ({
+                            characters: (prev.characters || []).map((ch) =>
+                              ch.id === c.id
+                                ? {
+                                    ...ch,
+                                    avatarUrl: url,
+                                    castingVariations: [url, ...(ch.castingVariations || []).filter((u) => u !== url)],
+                                  }
+                                : ch
+                            ),
+                          }));
+                          setAssignSuccessMsg(`¡Plano ${frames[viewingFrameIdx].shotNumber} asignado a ${c.name}!`);
+                          setTimeout(() => setAssignSuccessMsg(null), 3000);
+                        }}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10.5px] font-semibold transition cursor-pointer ${
+                          isAssigned
+                            ? "bg-amber-500 text-black font-bold shadow-sm"
+                            : "bg-zinc-800/90 text-zinc-200 hover:bg-amber-500/20 hover:text-amber-300 border border-zinc-700/60"
+                        }`}
+                        title={`Fijar como referencia visual oficial de ${c.name}`}
+                      >
+                        {isAssigned ? <Check size={11} /> : <span>👤</span>}
+                        <span>{c.name}</span>
+                      </button>
+                    );
+                  })}
+                  {assignSuccessMsg && (
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 animate-in fade-in">
+                      {assignSuccessMsg}
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Tira inferior de miniaturas para salto directo */}
               <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin">

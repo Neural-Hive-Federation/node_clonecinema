@@ -7,8 +7,8 @@ import type { Character, LocationRef, Project, PropItem, Shot } from "../types";
 export function isNonHumanCharacter(text: string): boolean {
   const normalized = text.toLowerCase();
   const nonHumanKeywords = [
-    "cebolla", "patata", "papa", "vegetal", "fruta", "comida", "alimento",
-    "antropomórfic", "antropomorf", "objeto", "robot", "criatura", "monstruo",
+    "cebolla", "onion", "patata", "papa", "potato", "vegetal", "fruta", "comida", "alimento",
+    "antropomórfic", "antropomorf", "anthropomorphic", "objeto", "robot", "criatura", "monstruo",
     "animal", "perro", "gato", "ratón", "oso", "conejo", "zorro", "lobo",
     "cartoon", "animad", "minion", "peluche", "juguete", "alien", "extraterrestre",
     "árbol", "planta", "flor", "hongo", "seta", "ajo", "tomate", "zanahoria",
@@ -18,22 +18,45 @@ export function isNonHumanCharacter(text: string): boolean {
 }
 
 /**
+ * Limpia adjetivos humanos y parentales que confunden a los modelos de difusión de imagen
+ * haciéndolos pintar personas reales en vez de criaturas/vegetales animados.
+ */
+function sanitizeNonHumanText(text: string): string {
+  return text
+    .replace(/\b(humana|humano|mujer|hombre|femenina|femenino|persona|rostro humano|piel humana|portrait)\b/gi, "")
+    .replace(/\b(madre protectora|madre)\b/gi, "protective parental character")
+    .replace(/\b(padre abnegado|padre)\b/gi, "hardworking parental character")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
  * Sintetizador de Casting para Personajes:
- * Elimina la trampa semántica humana ("natural skin texture", "35mm human headshot")
+ * Elimina la trampa semántica humana ("natural skin texture", "35mm human headshot", "portrait")
  * cuando el personaje es un vegetal, objeto o criatura antropomórfica.
  */
 export function synthesizeCharacterPrompt(char: Character, globalStyle?: string): string {
-  const combinedDesc = `${char.name} ${char.description} ${char.wardrobe || ""}`;
+  const combinedDesc = `${char.name} ${char.description} ${char.wardrobe || ""}`.toLowerCase();
   const isNonHuman = isNonHumanCharacter(combinedDesc);
   const loraTrigger = char.loraConfig?.triggerWord ? `, ${char.loraConfig.triggerWord}` : "";
-  const wardrobeInfo = char.wardrobe ? `Wardrobe/Attire: ${char.wardrobe}.` : "";
-  const styleAnchor = globalStyle ? `Art Style: ${globalStyle}.` : "Style: High-end 3D animated feature film (Pixar/DreamWorks aesthetic).";
+  const styleAnchor = globalStyle ? `Art Style: ${globalStyle}.` : "Style: 3D animated CGI feature film (Pixar and DreamWorks animation aesthetic).";
 
   if (isNonHuman) {
-    return `${styleAnchor} Stylized character design portrait of ${char.name}: ${char.description}. ${wardrobeInfo}${loraTrigger} Anthropomorphic living food/creature character, body and head made of organic stylized materials. Strictly non-human character, cartoon expressive eyes and animated mouth, stylized texture, NO human skin, NO realistic human flesh, NO realistic human face. Studio character turnaround sheet, vibrant cinematic lighting, volumetric soft shadows, 8k resolution, masterpiece 3D render.`;
+    let specificAnatomy = "Stylized 3D CGI animated non-human creature in Pixar animation style. The head and body are made entirely of stylized cartoon organic material.";
+
+    if (combinedDesc.includes("cebolla") || combinedDesc.includes("onion")) {
+      specificAnatomy = "The character is an animated 3D cartoon yellow onion character. The entire head is physically a whole yellow onion vegetable bulb featuring golden papery peel textures, vertical onion lines, and a small green onion root shoot on the top. Big expressive cartoon eyes and a warm animated mouth are placed directly on the yellow onion bulb surface. The character has a small animated doll body wearing a purple blouse and a kitchen apron. Authentic 3D animated movie render.";
+    } else if (combinedDesc.includes("patata") || combinedDesc.includes("papa") || combinedDesc.includes("potato")) {
+      specificAnatomy = "The character is an animated 3D cartoon potato character. The entire body and head is physically a round brown russet potato tuber with realistic starchy bumpy peel. Big cute cartoon eyes and friendly mouth are situated directly on the potato body. Short cartoon limbs wearing a miniature rustic plaid flannel shirt. Authentic 3D animated movie render.";
+    }
+
+    const cleanDesc = sanitizeNonHumanText(char.description);
+    const cleanWardrobe = char.wardrobe ? sanitizeNonHumanText(char.wardrobe) : "";
+
+    return `${styleAnchor} Full body 3D CGI character model render. ${specificAnatomy} Character details: ${cleanDesc}. ${cleanWardrobe ? `Wardrobe: ${cleanWardrobe}.` : ""}${loraTrigger} Highly detailed 3D digital sculpture, cartoon shaders, vibrant studio lighting, subsurface scattering on stylized materials, 8k render, masterpiece.`;
   }
 
-  return `Cinematic character portrait photo of ${char.name}: ${char.description}. ${wardrobeInfo}${loraTrigger} ${styleAnchor} Consistent facial anatomy, authentic costume details, sharp eyes, 8k resolution, cinematic studio lighting, dramatic rim light, shallow depth of field, high detail.`;
+  return `Cinematic character portrait photo of ${char.name}: ${char.description}. ${char.wardrobe ? `Wardrobe: ${char.wardrobe}.` : ""}${loraTrigger} ${styleAnchor} Consistent facial anatomy, authentic costume details, sharp eyes, 8k resolution, cinematic studio lighting, dramatic rim light, shallow depth of field, high detail.`;
 }
 
 /**
@@ -80,8 +103,9 @@ export function synthesizeShotPrompt(
     const isNonHuman = isNonHumanCharacter(`${char.name} ${char.description}`);
     const loraTrigger = char.loraConfig?.triggerWord ? `, ${char.loraConfig.triggerWord}` : "";
     if (isNonHuman) {
+      const cleanDesc = sanitizeNonHumanText(char.description);
       parts.push(
-        `Main Character: ${char.name} (${char.description}), wearing ${char.wardrobe || "signature attire"}${loraTrigger}. Strictly anthropomorphic cartoon creature, body made entirely of ${char.name}, no human skin, cartoon facial features with expressive eyes and mouth.`
+        `Main Character: ${char.name} (${cleanDesc}), wearing ${char.wardrobe || "signature attire"}${loraTrigger}. Strictly stylized 3D animated non-human character, body and head made of organic stylized food materials, cartoon expressive eyes and animated mouth directly on the vegetable.`
       );
     } else {
       parts.push(
