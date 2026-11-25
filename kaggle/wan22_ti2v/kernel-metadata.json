@@ -1,0 +1,16 @@
+{
+  "id": "wilycol/clonecinema-wan-2-2-ti2v",
+  "title": "CloneCinema Wan 2.2 TI2V",
+  "code_file": "CloneCinema_Wan2_2_TI2V_Kaggle.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [
+    "dhoombhai/wan-2-2-5b-model-data"
+  ],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

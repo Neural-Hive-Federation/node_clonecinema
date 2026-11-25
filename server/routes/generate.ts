@@ -1,15 +1,48 @@
 import { Router } from "express";
 import { config, missingFor } from "../lib/config";
 import { generateGeminiImage } from "../lib/gemini";
-import { advanceJob, createJob, failJob, getJob, saveJob, type Job } from "../lib/jobs";
+import { advanceJob, completeJob, createJob, failJob, getJob, saveJob, type Job } from "../lib/jobs";
 import { submitKernelJob, type KaggleTask } from "../lib/kaggle";
 import { readAssetAsBase64 } from "../lib/storage";
 import { resolveUser } from "../lib/supabase";
 import { startVeo, veoStatus } from "../lib/veo";
+import { getWanGateway, generateWanVideo } from "../lib/comfyWan";
 import { checkCredits } from "../middleware/checkCredits";
 import "../types";
 
 export const generateRouter = Router();
+
+/** Estado del motor interactivo Wan 2.2 en Kaggle (Warm Session). */
+generateRouter.get("/wan/status", async (_req, res) => {
+  const status = await getWanGateway();
+  return res.json(status);
+});
+
+/** Keep-alive para renovar la sesión activa desde el Watchdog del frontend */
+generateRouter.post("/wan/keepalive", async (_req, res) => {
+  const status = await getWanGateway();
+  if (status.online && status.tunnelUrl) {
+    try {
+      await fetch(`${status.tunnelUrl}/system_stats`, { timeout: 3000 } as any);
+    } catch {}
+  }
+  return res.json({ success: true, message: "Sesión renovada por 10 minutos más." });
+});
+
+/** Apagado intencional desde el frontend para ahorrar cuota de GPU */
+generateRouter.post("/wan/shutdown", async (_req, res) => {
+  const { supabaseAdmin } = await import("../lib/supabase");
+  const db = supabaseAdmin();
+  if (db) {
+    await db.from("ai_jobs").upsert({
+      id: "a0000000-0000-0000-0000-000000000001",
+      status: "done",
+      prompt: "Apagado solicitado desde CloneCinema para proteger horas de GPU",
+      updated_at: new Date().toISOString()
+    });
+  }
+  return res.json({ success: true, message: "Motor Wan 2.2 marcado para desconexión." });
+});
 
 const FORMATS = ["9:16", "16:9", "1:1"];
 const MAX_INLINE_IMAGE_B64 = 12 * 1024 * 1024;
@@ -139,7 +172,7 @@ generateRouter.post("/generate/image", checkCredits("image"), async (req, res) =
   });
 });
 
-/** Clip: Wan 2.1 I2V en Kaggle (job asíncrono) o Veo como respaldo. */
+/** Clip: Wan 2.2 TI2V en Kaggle Live (Warm Session) con fallback a Batch o Veo. */
 generateRouter.post("/generate/video", checkCredits("video"), async (req, res) => {
   const prompt = String(req.body?.prompt || "").trim();
   const imageUrl = typeof req.body?.imageUrl === "string" ? req.body.imageUrl : "";
@@ -150,6 +183,60 @@ generateRouter.post("/generate/video", checkCredits("video"), async (req, res) =
   if (!prompt) {
     await billing.refund();
     return res.status(400).json({ error: "Falta el prompt de video." });
+  }
+
+  // 1. Si el motor interactivo Wan 2.2 (Kaggle Warm Session) está en línea, usar vía directa ultra-rápida (~35-45s)
+  const liveWan = await getWanGateway();
+  if (liveWan.online && liveWan.tunnelUrl) {
+    let job: Job;
+    try {
+      job = await createJob({
+        userId: user?.id ?? null,
+        kind: "video",
+        prompt,
+        inputUrl: imageUrl || null,
+        creditsCharged: billing.charged,
+      });
+      job.provider = "kaggle";
+      job.status = "running";
+      await saveJob(job);
+    } catch (err: any) {
+      await billing.refund();
+      return res.status(500).json({ error: err?.message || "No se pudo crear el trabajo." });
+    }
+
+    // Ejecutar generación en background para streaming asíncrono
+    generateWanVideo({
+      prompt,
+      imageUrl: imageUrl || undefined,
+      numFrames: Number(process.env.WAN_NUM_FRAMES) || 25,
+      fps: Number(process.env.WAN_FPS) || 16,
+      userId: user?.id ?? null,
+      jobId: job.id,
+      onProgress: (pct, msg) => {
+        console.log(`[Wan 2.2 Job ${job.id}] ${pct}% - ${msg}`);
+      },
+    })
+      .then(async (result) => {
+        if (result.success && result.videoUrl) {
+          await completeJob(job, result.videoUrl);
+          console.log(`[Wan 2.2 Job ${job.id}] ¡Video completado!: ${result.videoUrl}`);
+        } else {
+          await failJob(job, result.error || "Generación fallida en Wan 2.2");
+        }
+      })
+      .catch(async (err) => {
+        console.error(`[Wan 2.2 Job ${job.id}] Error:`, err);
+        await failJob(job, err?.message || "Error procesando video en Wan 2.2");
+      });
+
+    return res.json({
+      success: true,
+      provider: "kaggle_live",
+      jobId: job.id,
+      credits: billing.balance,
+      message: "Generando en motor Wan 2.2 en vivo (~35-45s)...",
+    });
   }
 
   if (config.kaggle.enabled) {

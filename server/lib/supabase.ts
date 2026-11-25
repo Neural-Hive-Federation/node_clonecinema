@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Request } from "express";
+import WebSocket from "ws";
 import { config } from "./config";
 
 export interface AuthUser {
@@ -17,6 +18,7 @@ export function supabaseAdmin(): SupabaseClient | null {
   if (!adminClient) {
     adminClient = createClient(config.supabase.url!, config.supabase.serviceRoleKey!, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      realtime: { transport: WebSocket as any },
     });
   }
   return adminClient;

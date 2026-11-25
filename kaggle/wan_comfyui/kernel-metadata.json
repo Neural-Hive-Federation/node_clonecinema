@@ -1,0 +1,14 @@
+{
+  "id": "wilycol/clonecinema-wan2-comfyui",
+  "title": "CloneCinema Wan2 ComfyUI",
+  "code_file": "CloneCinema_Wan2_2_TI2V_Kaggle.ipynb",
+  "language": "python",
+  "kernel_type": "notebook",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_internet": true,
+  "dataset_sources": [],
+  "competition_sources": [],
+  "kernel_sources": [],
+  "model_sources": []
+}

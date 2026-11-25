@@ -7,6 +7,8 @@ import { LeftRail } from "./components/LeftRail";
 import { ChatView } from "./components/ChatView";
 import { StudioView } from "./components/StudioView";
 import { AutoPilotModal } from "./components/AutoPilotModal";
+import { WanWatchdogModal } from "./components/WanWatchdogModal";
+import { useWanWatchdog } from "./hooks/useWanWatchdog";
 import { runFullAutoPilot, type AutoPilotState } from "./lib/autoPilot";
 
 const STORAGE_KEY = "clonecinema_projects_v1";
@@ -59,6 +61,7 @@ export default function App() {
   const [storageFull, setStorageFull] = useState(false);
   const [autoPilotState, setAutoPilotState] = useState<AutoPilotState | null>(null);
   const [showAutoPilotModal, setShowAutoPilotModal] = useState(false);
+  const wanWatchdog = useWanWatchdog(10);
 
   const handleStartAutoPilot = (url: string, brief: string, winner?: TrendingWinner) => {
     setShowAutoPilotModal(true);
@@ -330,6 +333,14 @@ export default function App() {
             projectTitle={active.title || active.name}
           />
         )}
+
+        {/* Modal Watchdog Inactividad Wan 2.2 */}
+        <WanWatchdogModal
+          isOpen={wanWatchdog.showModal}
+          onExtend={wanWatchdog.handleExtendSession}
+          onShutdown={wanWatchdog.handleShutdown}
+          initialSeconds={15}
+        />
 
         {/* Floating pill si está minimizado */}
         {autoPilotState?.isActive && !showAutoPilotModal && (
