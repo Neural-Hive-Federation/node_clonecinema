@@ -113,9 +113,16 @@ generateRouter.post("/generate/image", checkCredits("image"), async (req, res) =
         if (asset) propB64 = asset.base64;
       }
 
+      const { negativePrompt, negative_prompt } = req.body || {};
+      const isStylizedOrNonHuman = /cebolla|patata|papa|onion|potato|vegetal|creature|cartoon|pixar|animated|3d render|humanoid|cabeza de|antropom/i.test(prompt);
+      const defaultNegative = isStylizedOrNonHuman
+        ? "real human head, real human face, human skin on head, human hair, photorealistic human face, real human woman face, deformed, ugly, blurry, low quality, bad hands, extra limbs, dark, disfigured, text, watermark"
+        : "ugly, deformed, noisy, blurry, distorted, low quality, bad hands, lowres, collage, split screen";
+
       const payload: Record<string, unknown> = {
         job_id: job.id,
         prompt,
+        negative_prompt: negativePrompt || negative_prompt || defaultNegative,
         aspect_ratio: ratio,
         character_image_b64: characterB64,
         location_image_b64: locationB64,

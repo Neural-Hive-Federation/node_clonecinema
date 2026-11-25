@@ -9,7 +9,7 @@ import { Section, Spinner, ImageLightbox } from "../ui";
 import { CastingPickerModal } from "../CastingPickerModal";
 import { SourceFramePickerModal } from "../SourceFramePickerModal";
 import { LORA_PRESETS } from "../../lib/loraPresets";
-import { synthesizeCharacterPrompt, synthesizeLocationPrompt, synthesizePropPrompt } from "../../lib/coherence";
+import { getCharacterPrompts, synthesizeCharacterPrompt, synthesizeLocationPrompt, synthesizePropPrompt } from "../../lib/coherence";
 
 export function CastTab({
   project,
@@ -65,10 +65,10 @@ export function CastTab({
     setBusyChr(character.id);
     setError(null);
     try {
-      const prompt = synthesizeCharacterPrompt(character, project.style);
+      const { prompt, negativePrompt } = getCharacterPrompts(character, project.style);
 
-      // Se envían 4 solicitudes independientes en paralelo con el mismo prompt
-      const urls = await generateImageVariations(prompt, "1:1", 4);
+      // Se envían 4 solicitudes independientes en paralelo con el mismo prompt optimizado para Playground v2.5
+      const urls = await generateImageVariations(prompt, "1:1", 4, negativePrompt);
       const chosenAvatar = urls[0] || character.avatarUrl;
 
       updateCharacter(character.id, {

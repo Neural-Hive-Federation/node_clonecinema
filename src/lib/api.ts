@@ -194,7 +194,8 @@ export async function generateImage(
   references?: { character?: string; location?: string; prop?: string },
   strength?: number,
   signal?: AbortSignal,
-  onStatusUpdate?: (status: string) => void
+  onStatusUpdate?: (status: string) => void,
+  negativePrompt?: string
 ): Promise<string> {
   if (signal?.aborted) throw new Error("Generación cancelada por el usuario.");
   const data = await post<{
@@ -202,7 +203,7 @@ export async function generateImage(
     imageUrl?: string;
     jobId?: string;
     error?: string;
-  }>("/api/generate/image", { prompt, aspectRatio, references, strength });
+  }>("/api/generate/image", { prompt, aspectRatio, references, strength, negativePrompt });
 
   if (data.imageUrl) return data.imageUrl;
   if (data.jobId) return waitForJob(data.jobId, "image", signal, onStatusUpdate);
@@ -212,7 +213,8 @@ export async function generateImage(
 export async function generateImageVariations(
   prompt: string,
   aspectRatio: string = "1:1",
-  count: number = 4
+  count: number = 4,
+  negativePrompt?: string
 ): Promise<string[]> {
   const data = await post<{
     success: boolean;
@@ -220,7 +222,7 @@ export async function generateImageVariations(
     imageUrl?: string;
     imageUrls?: string[];
     error?: string;
-  }>("/api/generate/image", { prompt, aspectRatio, count });
+  }>("/api/generate/image", { prompt, aspectRatio, count, negativePrompt });
 
   if (Array.isArray(data.imageUrls) && data.imageUrls.length > 0) {
     return data.imageUrls;

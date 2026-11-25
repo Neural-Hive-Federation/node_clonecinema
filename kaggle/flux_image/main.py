@@ -51,7 +51,7 @@ RAW_B64 = "__PAYLOAD_B64__"
 DEFAULT_PAYLOAD = {
     "job_id": "playground_keyframe",
     "prompt": "Cinematic film still, ultra realistic, dramatic cinematic lighting, 8k masterpiece",
-    "negative_prompt": "ugly, deformed, noisy, blurry, distorted, low quality, bad anatomy, bad hands, cartoonish, lowres, collage, split screen",
+    "negative_prompt": "ugly, deformed, noisy, blurry, distorted, low quality, bad hands, lowres, collage, split screen",
     "aspect_ratio": "9:16",
     "strength": 0.65,
     "seed": 42

@@ -2,7 +2,7 @@ import { analyzeLink, generateImage, generateSpeech, startVideo, videoStatus } f
 import { applyPlan, uid } from "./project";
 import { runContinuityAudit } from "./continuityAudit";
 import { MUSIC_PRESETS } from "../data/musicTracks";
-import { synthesizeCharacterPrompt, synthesizeLocationPrompt, synthesizePropPrompt, synthesizeShotPrompt } from "./coherence";
+import { getCharacterPrompts, synthesizeCharacterPrompt, synthesizeLocationPrompt, synthesizePropPrompt, synthesizeShotPrompt } from "./coherence";
 import type { Project, Shot } from "../types";
 
 export interface AutoPilotLog {
@@ -166,8 +166,8 @@ export async function runFullAutoPilot(
       const mainChar = currentProject.characters[0];
       addLog(`Diseñando aspecto de ${mainChar.name}...`);
       try {
-        const charPrompt = synthesizeCharacterPrompt(mainChar, currentProject.style);
-        const avatarUrl = await generateImage(charPrompt, currentProject.format);
+        const { prompt: charPrompt, negativePrompt } = getCharacterPrompts(mainChar, currentProject.style);
+        const avatarUrl = await generateImage(charPrompt, currentProject.format, undefined, undefined, undefined, undefined, negativePrompt);
         if (avatarUrl) {
           currentProject.characters[0] = { ...mainChar, avatarUrl };
           addLog(`Rostro de ${mainChar.name} fijado con éxito.`, "success");

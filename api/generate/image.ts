@@ -117,7 +117,7 @@ DEFAULT_PAYLOAD = {
     "job_id": "playground_keyframe",
     "count": 1,
     "prompt": "Cinematic film still, ultra realistic, dramatic cinematic lighting, 8k masterpiece",
-    "negative_prompt": "ugly, deformed, noisy, blurry, distorted, low quality, bad anatomy, bad hands, cartoonish, lowres, collage, split screen",
+    "negative_prompt": "ugly, deformed, noisy, blurry, distorted, low quality, bad hands, lowres, collage, split screen",
     "aspect_ratio": "9:16",
     "strength": 0.65,
     "seed": 42
@@ -394,7 +394,7 @@ export default async function handler(req: any, res: any) {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { prompt, aspectRatio, references, strength, count } = req.body || {};
+    const { prompt, aspectRatio, references, strength, count, negativePrompt, negative_prompt } = req.body || {};
     if (!prompt || typeof prompt !== "string") {
       return res.status(400).json({ error: "Falta el prompt de la imagen." });
     }
@@ -403,10 +403,24 @@ export default async function handler(req: any, res: any) {
     const jobId = randomUUID();
     const numCount = Math.min(Math.max(Number(count) || 1, 1), 4);
 
+    const isStylizedOrNonHuman = /cebolla|patata|papa|onion|potato|vegetal|creature|cartoon|pixar|animated|3d render|humanoid|cabeza de|antropom/i.test(prompt);
+
     let enrichedPrompt = prompt.trim();
-    if (!enrichedPrompt.toLowerCase().includes("photorealistic")) {
-      enrichedPrompt = `${enrichedPrompt}, photorealistic 35mm film still, cinematic lighting, 8k uhd, masterpiece`;
+    if (isStylizedOrNonHuman) {
+      if (!enrichedPrompt.toLowerCase().includes("masterpiece")) {
+        enrichedPrompt = `${enrichedPrompt}, 3D animated feature film character render, Pixar aesthetic, studio lighting, 8k masterpiece`;
+      }
+    } else {
+      if (!enrichedPrompt.toLowerCase().includes("photorealistic") && !enrichedPrompt.toLowerCase().includes("masterpiece")) {
+        enrichedPrompt = `${enrichedPrompt}, photorealistic 35mm film still, cinematic lighting, 8k uhd, masterpiece`;
+      }
     }
+
+    const defaultNegative = isStylizedOrNonHuman
+      ? "real human head, real human face, human skin on head, human hair, photorealistic human face, real human woman face, deformed, ugly, blurry, low quality, bad hands, extra limbs, dark, disfigured, text, watermark"
+      : "ugly, deformed, noisy, blurry, distorted, low quality, bad hands, lowres, collage, split screen";
+
+    const resolvedNegative = negativePrompt || negative_prompt || defaultNegative;
 
     const [charRef, locRef, propRef] = await Promise.all([
       processReferenceImage(references?.character, supabase),
@@ -418,6 +432,7 @@ export default async function handler(req: any, res: any) {
       job_id: jobId,
       count: numCount,
       prompt: enrichedPrompt,
+      negative_prompt: resolvedNegative,
       aspect_ratio: aspectRatio || "16:9",
       character_image_b64: charRef,
       location_image_b64: locRef,
