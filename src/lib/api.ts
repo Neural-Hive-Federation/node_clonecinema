@@ -126,8 +126,9 @@ interface JobStatus {
 }
 
 const POLL_MS = 3000;
-const MAX_QUEUE_MS = 35 * 60 * 1000; // Hasta 35 minutos tolerando cola de espera de GPU en Kaggle durante horas pico
-const MAX_RUNNING_MS = 12 * 60 * 1000; // Hasta 12 minutos una vez que la GPU está activamente ejecutando
+const MAX_QUEUE_MS = 40 * 60 * 1000; // Hasta 40 minutos tolerando cola de espera de GPU en Kaggle durante horas pico
+const MAX_RUNNING_IMAGE_MS = 15 * 60 * 1000; // 15 minutos para generación de imágenes
+const MAX_RUNNING_VIDEO_MS = 35 * 60 * 1000; // Hasta 35 minutos para renderizado de video Wan 2.1 I2V (cada clip toma ~18-20 min)
 
 export async function waitForJobFull(
   jobId: string,
@@ -138,6 +139,7 @@ export async function waitForJobFull(
   const started = Date.now();
   let runningStarted: number | null = null;
   let lastStatus = "";
+  const maxRunningLimit = kind === "video" ? MAX_RUNNING_VIDEO_MS : MAX_RUNNING_IMAGE_MS;
 
   while (true) {
     if (signal?.aborted) {
@@ -159,8 +161,8 @@ export async function waitForJobFull(
     }
 
     if (runningStarted) {
-      if (Date.now() - runningStarted > MAX_RUNNING_MS) {
-        throw new Error(`La tarea se excedió del tiempo límite en GPU (${Math.round(MAX_RUNNING_MS / 60000)} min).`);
+      if (Date.now() - runningStarted > maxRunningLimit) {
+        throw new Error(`La tarea se excedió del tiempo límite en GPU (${Math.round(maxRunningLimit / 60000)} min).`);
       }
     } else {
       if (Date.now() - started > MAX_QUEUE_MS) {
