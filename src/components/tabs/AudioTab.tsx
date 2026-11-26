@@ -1,12 +1,12 @@
 import React, { useState, useRef } from "react";
-import { AudioLines, Clock, Music4, Play, Volume2, Sparkles, CheckCircle2, AlertTriangle, Upload, Wand2, ListFilter, Check, X, ChevronDown, CheckSquare, Square, StopCircle } from "lucide-react";
+import { AudioLines, Clock, Music4, Play, Volume2, Sparkles, CheckCircle2, AlertTriangle, Upload, Wand2, ListFilter, Check, X, ChevronDown, CheckSquare, Square, StopCircle, Sliders } from "lucide-react";
 import type { Project, ProjectUpdater, Shot } from "../../types";
 import { generateSpeech } from "../../lib/api";
 import { getSupabase } from "../../lib/supabase";
 import { VOICES } from "../../lib/project";
 import { MUSIC_PRESETS, type MusicTrackPreset } from "../../data/musicTracks";
 import { Field, Section, Spinner } from "../ui";
-import { getVoiceLabel } from "../../lib/voices";
+import { CHARACTER_VOICE_CATALOG, PITCH_PRESETS, getPitchTag, getVoiceLabel } from "../../lib/voices";
 
 export function AudioTab({
   project,
@@ -16,6 +16,7 @@ export function AudioTab({
   patch: ProjectUpdater;
 }) {
   const [busyGlobal, setBusyGlobal] = useState(false);
+  const [busyTestVoice, setBusyTestVoice] = useState(false);
   const [loadingShotIds, setLoadingShotIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploadingBgm, setUploadingBgm] = useState(false);
@@ -160,6 +161,26 @@ export function AudioTab({
       shots: (prev.shots || []).map((s) => (s.id === shotId ? { ...s, ...partial } : s)),
     }));
 
+  // Probar muestra de voz maestra con modulación de pitch
+  async function handleTestMasterVoice() {
+    const voice = project.audio.voice || "es-CO-GonzaloNeural";
+    const pitch = project.audio.voicePitch ?? 0;
+    setBusyTestVoice(true);
+    setError(null);
+    try {
+      const sampleText =
+        project.audio.narration.slice(0, 80).trim() ||
+        "CloneCinema. Prueba de modulación y tono para la narración maestra del proyecto.";
+      const audioUrl = await generateSpeech(sampleText, voice, { pitch });
+      const audio = new Audio(audioUrl);
+      audio.play();
+    } catch (err: any) {
+      setError(err?.message || "Error al probar muestra de voz maestra.");
+    } finally {
+      setBusyTestVoice(false);
+    }
+  }
+
   // Generar narración global del proyecto
   async function narrateGlobal() {
     const textToSpeak = project.audio.narration.trim();
@@ -170,7 +191,10 @@ export function AudioTab({
     setBusyGlobal(true);
     setError(null);
     try {
-      const url = await generateSpeech(textToSpeak, project.audio.voice);
+      const url = await generateSpeech(textToSpeak, project.audio.voice, {
+        pitch: project.audio.voicePitch ?? 0,
+        rate: project.audio.voiceRate ?? 1.0,
+      });
       setAudio({ narrationUrl: url });
     } catch (err: any) {
       setError(err?.message || "No se pudo generar la narración.");
@@ -312,23 +336,107 @@ export function AudioTab({
             onChange={(e) => setAudio({ narration: e.target.value })}
             placeholder="Escribe el guion de la voz en off global…"
           />
-          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-            <Field label="Voz de narración">
-              <select
-                className="field"
-                value={project.audio.voice}
-                onChange={(e) => setAudio({ voice: e.target.value as Project["audio"]["voice"] })}
+          <div className="mt-3 space-y-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+              <Field label="Voz de narración">
+                <select
+                  className="field"
+                  value={project.audio.voice}
+                  onChange={(e) => setAudio({ voice: e.target.value as Project["audio"]["voice"] })}
+                >
+                  <optgroup label="✨ Voces Femeninas">
+                    {CHARACTER_VOICE_CATALOG.filter((v) => v.gender === "female").map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.flag} {v.name} ({v.country}) — {v.description}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🎩 Voces Masculinas">
+                    {CHARACTER_VOICE_CATALOG.filter((v) => v.gender === "male").map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.flag} {v.name} ({v.country}) — {v.description}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="👶 Voces Infantiles & Juveniles">
+                    {CHARACTER_VOICE_CATALOG.filter((v) => v.gender === "child").map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.flag} {v.name} — {v.description}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="👴 Voces de Ancianos / Sabios">
+                    {CHARACTER_VOICE_CATALOG.filter((v) => v.gender === "elder").map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.flag} {v.name} — {v.description}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="🔮 Voces Clásicas Gemini">
+                    {VOICES.map((v) => (
+                      <option key={v} value={v}>
+                        ✨ {v} (Gemini)
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </Field>
+
+              <button
+                type="button"
+                className="btn btn-ghost h-[38px] border border-zinc-700 bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 text-xs flex items-center gap-1.5 px-3 cursor-pointer"
+                disabled={busyTestVoice}
+                onClick={handleTestMasterVoice}
+                title="Escuchar una muestra con esta voz y modulación"
               >
-                {VOICES.map((v) => (
-                  <option key={v} value={v}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <button className="btn btn-primary h-[38px]" onClick={narrateGlobal} disabled={busyGlobal}>
-              {busyGlobal ? <Spinner /> : <AudioLines size={14} />} Generar voz maestra
-            </button>
+                {busyTestVoice ? <Spinner /> : <Volume2 size={13} className="text-signal" />}
+                <span>{busyTestVoice ? "Probando..." : "Probar"}</span>
+              </button>
+
+              <button className="btn btn-primary h-[38px]" onClick={narrateGlobal} disabled={busyGlobal}>
+                {busyGlobal ? <Spinner /> : <AudioLines size={14} />} Generar voz maestra
+              </button>
+            </div>
+
+            {/* Modulador de Tono (Pitch) para Narración Maestra */}
+            <div className="rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-2.5">
+              <div className="flex items-center justify-between text-[11px] mb-1.5">
+                <span className="flex items-center gap-1.5 text-zinc-300 font-semibold">
+                  <Sliders size={11} className="text-signal" /> Modulador de Tono (Pitch):
+                </span>
+                <span className={`font-mono font-bold ${getPitchTag(project.audio.voicePitch ?? 0).color}`}>
+                  {getPitchTag(project.audio.voicePitch ?? 0).label} ({(project.audio.voicePitch ?? 0) > 0 ? `+${project.audio.voicePitch}%` : `${project.audio.voicePitch ?? 0}%`})
+                </span>
+              </div>
+              <input
+                type="range"
+                min="-25"
+                max="40"
+                step="1"
+                className="w-full accent-lime-400 h-1.5 bg-zinc-800 rounded-lg cursor-pointer"
+                value={project.audio.voicePitch ?? 0}
+                onChange={(e) => setAudio({ voicePitch: parseInt(e.target.value, 10) })}
+              />
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {PITCH_PRESETS.map((p) => {
+                  const isSelected = (project.audio.voicePitch ?? 0) === p.value;
+                  return (
+                    <button
+                      key={p.value}
+                      type="button"
+                      className={`text-[9.5px] px-2 py-0.5 rounded border transition cursor-pointer ${
+                        isSelected
+                          ? "border-signal bg-signal/20 text-signal font-bold shadow-xs"
+                          : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                      }`}
+                      onClick={() => setAudio({ voicePitch: p.value })}
+                    >
+                      {p.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           {error && (

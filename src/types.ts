@@ -177,7 +177,9 @@ export interface PropItem {
 
 export interface AudioPlan {
   narration: string;
-  voice: "Zephyr" | "Kore" | "Puck" | "Charon" | "Fenrir";
+  voice: "Zephyr" | "Kore" | "Puck" | "Charon" | "Fenrir" | string;
+  voicePitch?: number;
+  voiceRate?: number;
   music: string;
   bpm: string;
   sfxPalette: string[];
