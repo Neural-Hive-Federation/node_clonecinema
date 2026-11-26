@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { Film, ImageIcon, MapPin, Maximize2, Package, Plus, Sparkles, Trash2, Upload, UserCheck, UserRound, Zap } from "lucide-react";
+import { Film, ImageIcon, MapPin, Maximize2, Package, Plus, Sliders, Sparkles, Trash2, Upload, UserCheck, UserRound, Volume2, Zap } from "lucide-react";
 import type { Character, LocationRef, Project, ProjectUpdater, PropItem } from "../../types";
-import { generateImage, generateImageVariations, isPaymentRequired } from "../../lib/api";
+import { generateImage, generateImageVariations, generateSpeech, isPaymentRequired } from "../../lib/api";
 import { uploadImageFile } from "../../lib/imageUpload";
 import { useSession } from "../../context/SessionContext";
 import { uid } from "../../lib/project";
@@ -10,6 +10,7 @@ import { CastingPickerModal } from "../CastingPickerModal";
 import { SourceFramePickerModal } from "../SourceFramePickerModal";
 import { LORA_PRESETS } from "../../lib/loraPresets";
 import { getCharacterPrompts, synthesizeCharacterPrompt, synthesizeLocationPrompt, synthesizePropPrompt } from "../../lib/coherence";
+import { CHARACTER_VOICE_CATALOG, PITCH_PRESETS, getPitchTag } from "../../lib/voices";
 
 export function CastTab({
   project,
@@ -53,6 +54,8 @@ export function CastTab({
             role: s.title || `Plano ${s.number}`,
           }));
 
+  const [busyVoiceId, setBusyVoiceId] = useState<string | null>(null);
+
   const setCharacters = (characters: Character[]) => patch({ characters });
   const setLocations = (locations: LocationRef[]) => patch({ locations });
   const setProps = (props: PropItem[]) => patch({ props });
@@ -61,6 +64,27 @@ export function CastTab({
     patch((prev) => ({
       characters: (prev.characters || []).map((c) => (c.id === id ? { ...c, ...partial } : c)),
     }));
+
+  async function handleTestVoice(c: Character) {
+    const voice = c.voiceId || "es-MX-JorgeNeural";
+    const pitch = c.voicePitch ?? 0;
+    setBusyVoiceId(c.id);
+    try {
+      const sampleText = `¡Hola! Soy ${c.name} y esta es mi voz oficial en CloneCinema.`;
+      const audioUrl = await generateSpeech(sampleText, voice, {
+        pitch,
+        characterName: c.name,
+        role: c.role,
+      });
+      const audio = new Audio(audioUrl);
+      void audio.play();
+    } catch (err: any) {
+      console.error("Error probando voz:", err);
+      setError(`Error probando voz: ${err?.message || "No se pudo sintetizar"}`);
+    } finally {
+      setBusyVoiceId(null);
+    }
+  }
 
   const updateLocation = (id: string, partial: Partial<LocationRef>) =>
     patch((prev) => ({
@@ -499,6 +523,121 @@ export function CastTab({
                           />
                         </div>
                       )}
+                    </div>
+                  </div>
+
+                  {/* 🎭 Configuración Vocal Oficial del Personaje */}
+                  <div className="rounded-lg border border-zinc-800/90 bg-zinc-950/60 p-2.5 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-300">
+                        <Volume2 size={12} className={c.voiceId ? "text-signal" : "text-zinc-500"} />
+                        <span>Voz Oficial del Actor</span>
+                      </div>
+                      <span className={`text-[9.5px] font-mono font-bold ${getPitchTag(c.voicePitch ?? 0).color}`}>
+                        {getPitchTag(c.voicePitch ?? 0).label} ({c.voicePitch && c.voicePitch > 0 ? `+${c.voicePitch}%` : `${c.voicePitch ?? 0}%`})
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-2">
+                      <div className="flex gap-1.5">
+                        <select
+                          className="field py-1 text-[11px] bg-zinc-900 border-zinc-800 text-zinc-200 flex-1"
+                          value={c.voiceId || ""}
+                          onChange={(e) => updateCharacter(c.id, { voiceId: e.target.value || undefined })}
+                        >
+                          <option value="">Sin voz fija (Usa narrador general)</option>
+                          <optgroup label="Voces Femeninas">
+                            {CHARACTER_VOICE_CATALOG.filter((v) => v.gender === "female").map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.flag} {v.name} · {v.description}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Voces Masculinas">
+                            {CHARACTER_VOICE_CATALOG.filter((v) => v.gender === "male").map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.flag} {v.name} · {v.description}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Voces Infantiles">
+                            {CHARACTER_VOICE_CATALOG.filter((v) => v.gender === "child").map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.flag} {v.name} · {v.description}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Voces Ancianas / Arquetipos">
+                            {CHARACTER_VOICE_CATALOG.filter((v) => v.gender === "elder").map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.flag} {v.name} · {v.description}
+                              </option>
+                            ))}
+                          </optgroup>
+                        </select>
+
+                        <button
+                          type="button"
+                          disabled={busyVoiceId === c.id}
+                          onClick={() => handleTestVoice(c)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-signal/40 bg-signal/10 px-2.5 py-1 text-[10.5px] font-bold text-signal hover:bg-signal/20 transition cursor-pointer disabled:opacity-50 shrink-0"
+                          title="Escuchar prueba de voz con el pitch actual"
+                        >
+                          {busyVoiceId === c.id ? (
+                            <Spinner size={11} className="text-signal" />
+                          ) : (
+                            <Volume2 size={11} />
+                          )}
+                          <span>{busyVoiceId === c.id ? "..." : "Probar"}</span>
+                        </button>
+                      </div>
+
+                      {/* Slider de Pitch / Tono */}
+                      <div className="space-y-1.5 pt-1 border-t border-zinc-800/60">
+                        <div className="flex items-center justify-between text-[10px]">
+                          <span className="text-zinc-500 flex items-center gap-1">
+                            <Sliders size={10} /> Modulador de Tono (Pitch):
+                          </span>
+                          <span className="font-mono text-zinc-300">
+                            {(c.voicePitch ?? 0) > 0 ? `+${c.voicePitch}%` : `${c.voicePitch ?? 0}%`}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] text-zinc-500">-35%</span>
+                          <input
+                            type="range"
+                            min="-35"
+                            max="45"
+                            step="1"
+                            value={c.voicePitch ?? 0}
+                            onChange={(e) => updateCharacter(c.id, { voicePitch: parseInt(e.target.value, 10) })}
+                            className="h-1 flex-1 bg-zinc-800 accent-signal rounded cursor-pointer"
+                          />
+                          <span className="text-[9px] text-zinc-500">+45%</span>
+                        </div>
+
+                        {/* Preset Pill Badges */}
+                        <div className="flex flex-wrap gap-1 pt-0.5">
+                          {PITCH_PRESETS.map((p) => {
+                            const isSelected = (c.voicePitch ?? 0) === p.value;
+                            return (
+                              <button
+                                key={p.label}
+                                type="button"
+                                onClick={() => updateCharacter(c.id, { voicePitch: p.value })}
+                                className={`rounded px-1.5 py-0.5 text-[9px] font-medium transition cursor-pointer border ${
+                                  isSelected
+                                    ? "bg-signal/20 text-signal border-signal/40 font-bold"
+                                    : "bg-zinc-900/80 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:border-zinc-700"
+                                }`}
+                              >
+                                {p.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

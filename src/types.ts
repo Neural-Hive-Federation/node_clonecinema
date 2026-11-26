@@ -152,6 +152,9 @@ export interface Character {
   avatarUrl?: string;
   castingVariations?: string[];
   loraConfig?: LoraConfig;
+  voiceId?: string;
+  voicePitch?: number;
+  voiceRate?: number;
 }
 
 export interface LocationRef {

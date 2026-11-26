@@ -99,10 +99,22 @@ export function updateTrendingStatus(
   return post<{ success: boolean }>("/api/viral/trending/status", { id, status });
 }
 
-export async function generateSpeech(text: string, voice: string): Promise<string> {
+export async function generateSpeech(
+  text: string,
+  voice: string,
+  options?: { pitch?: number; rate?: number; role?: string; characterName?: string }
+): Promise<string> {
   const data = await post<{ success: boolean; audioUrl?: string | null; audioBase64?: string; mimeType?: string; error?: string }>(
     "/api/ai/speech",
-    { text, voice, tone: "cinematic, intimate and confident" }
+    {
+      text,
+      voice,
+      pitch: options?.pitch ?? 0,
+      rate: options?.rate ?? 1.0,
+      role: options?.role,
+      characterName: options?.characterName,
+      tone: "cinematic, intimate and confident"
+    }
   );
   if (data.audioUrl) {
     return data.audioUrl;

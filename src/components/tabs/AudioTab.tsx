@@ -6,6 +6,7 @@ import { getSupabase } from "../../lib/supabase";
 import { VOICES } from "../../lib/project";
 import { MUSIC_PRESETS, type MusicTrackPreset } from "../../data/musicTracks";
 import { Field, Section, Spinner } from "../ui";
+import { getVoiceLabel } from "../../lib/voices";
 
 export function AudioTab({
   project,
@@ -188,7 +189,26 @@ export function AudioTab({
     setLoadingShotIds((prev) => [...prev, shot.id]);
     setError(null);
     try {
-      const url = await generateSpeech(textToSpeak, project.audio.voice);
+      const character =
+        project.characters?.find((c) => c.id === shot.characterId) ||
+        project.characters?.find((c) => {
+          const firstWord = c.name.toLowerCase().split(" ")[0];
+          return (
+            firstWord.length >= 3 &&
+            `${shot.dialogue || ""} ${shot.voiceover || ""} ${shot.title || ""}`
+              .toLowerCase()
+              .includes(firstWord)
+          );
+        });
+      const voiceToUse = character?.voiceId || project.audio.voice;
+      const pitchToUse = character?.voicePitch ?? 0;
+      const rateToUse = character?.voiceRate ?? 1.0;
+      const url = await generateSpeech(textToSpeak, voiceToUse, {
+        pitch: pitchToUse,
+        rate: rateToUse,
+        characterName: character?.name,
+        role: character?.role,
+      });
       updateShot(shot.id, { audioUrl: url });
     } catch (err: any) {
       setError(`Error en Plano ${shot.number}: ${err?.message || "Fallo al generar voz."}`);
@@ -225,7 +245,26 @@ export function AudioTab({
 
       setLoadingShotIds((prev) => [...prev, shot.id]);
       try {
-        const url = await generateSpeech(textToSpeak, project.audio.voice);
+        const character =
+          project.characters?.find((c) => c.id === shot.characterId) ||
+          project.characters?.find((c) => {
+            const firstWord = c.name.toLowerCase().split(" ")[0];
+            return (
+              firstWord.length >= 3 &&
+              `${shot.dialogue || ""} ${shot.voiceover || ""} ${shot.title || ""}`
+                .toLowerCase()
+                .includes(firstWord)
+            );
+          });
+        const voiceToUse = character?.voiceId || project.audio.voice;
+        const pitchToUse = character?.voicePitch ?? 0;
+        const rateToUse = character?.voiceRate ?? 1.0;
+        const url = await generateSpeech(textToSpeak, voiceToUse, {
+          pitch: pitchToUse,
+          rate: rateToUse,
+          characterName: character?.name,
+          role: character?.role,
+        });
         updateShot(shot.id, { audioUrl: url });
       } catch (err: any) {
         console.error(`Error generando audio de Plano ${shot.number}:`, err);
@@ -443,6 +482,27 @@ export function AudioTab({
                         <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
                           <Clock size={10} /> Duración de plano: {shotSec}s
                         </span>
+                        {/* Indicador de Actor y Voz */}
+                        {(() => {
+                          const char = project.characters?.find((c) => c.id === s.characterId);
+                          if (char) {
+                            return (
+                              <span className="text-[10px] text-zinc-300 bg-zinc-900 border border-zinc-700/80 px-2 py-0.5 rounded flex items-center gap-1">
+                                <span>🎭 {char.name}</span>
+                                <span className="text-zinc-500">·</span>
+                                <span className="text-signal font-semibold">{getVoiceLabel(char.voiceId)}</span>
+                                <span className="font-mono text-zinc-400">
+                                  ({(char.voicePitch ?? 0) > 0 ? `+${char.voicePitch}%` : `${char.voicePitch ?? 0}%`})
+                                </span>
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="text-[10px] text-zinc-400 bg-zinc-900/60 px-2 py-0.5 rounded border border-zinc-800">
+                              🎙️ Narrador ({project.audio.voice})
+                            </span>
+                          );
+                        })()}
                       </div>
 
                       {/* Botón individual de generación */}

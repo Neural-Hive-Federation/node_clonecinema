@@ -151,22 +151,26 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { text, voice, tone, role, characterName, gender } = req.body || {};
+  const { text, voice, tone, role, characterName, gender, pitch = 0, rate = 1.0 } = req.body || {};
   if (!text || typeof text !== "string") {
     return res.status(400).json({ error: "Falta el texto a sintetizar" });
   }
 
   const cleanText = text.trim();
+  const numPitch = Number(pitch) || 0;
+  const numRate = Number(rate) || 1.0;
 
   // Mapear voz solicitada a una voz válida de Gemini
   let voiceName = "Fenrir";
   const lowerVoice = (voice || "").toLowerCase();
   if (VALID_GEMINI_VOICES[lowerVoice]) {
     voiceName = VALID_GEMINI_VOICES[lowerVoice];
-  } else if (lowerVoice.includes("female") || lowerVoice.includes("mujer") || lowerVoice.includes("kore") || lowerVoice.includes("salome") || lowerVoice.includes("cebolla")) {
+  } else if (lowerVoice.includes("female") || lowerVoice.includes("mujer") || lowerVoice.includes("kore") || lowerVoice.includes("salome") || lowerVoice.includes("dalia") || lowerVoice.includes("cebolla") || lowerVoice.includes("elvira")) {
     voiceName = "Kore";
-  } else if (lowerVoice.includes("puck") || lowerVoice.includes("niño") || lowerVoice.includes("niña") || lowerVoice.includes("child")) {
+  } else if (lowerVoice.includes("puck") || lowerVoice.includes("niño") || lowerVoice.includes("niña") || lowerVoice.includes("child") || lowerVoice.includes("patatin") || lowerVoice.includes("larissa") || numPitch > 15) {
     voiceName = "Puck";
+  } else if (lowerVoice.includes("charon") || lowerVoice.includes("elder") || lowerVoice.includes("ancian") || numPitch < -15) {
+    voiceName = "Charon";
   } else {
     voiceName = "Fenrir";
   }
@@ -184,9 +188,12 @@ export default async function handler(req: any, res: any) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             text: cleanText,
-            role: role || (voiceName === "Kore" ? "adult_female" : voiceName === "Puck" ? "child_boy" : "adult_male"),
+            role: role || (numPitch >= 20 ? "child_boy" : voiceName === "Kore" ? "adult_female" : "adult_male"),
             character_name: characterName || undefined,
             gender: gender || (voiceName === "Kore" ? "female" : "male"),
+            voice: voice || undefined,
+            pitch: numPitch,
+            speed: numRate,
             tone: tone || undefined,
           }),
         });
