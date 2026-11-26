@@ -30,7 +30,9 @@ const VALID_GEMINI_VOICES: Record<string, string> = {
   zephyr: "Zephyr",
 };
 
-async function uploadAudioToSupabase(buffer: Buffer, contentType: string, ext = "wav"): Promise<string | null> {
+const RESERVED_VOICE_STUDIO_ID = "a0000000-0000-0000-0000-000000000002";
+
+function getSupabaseClient() {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const supabaseKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -39,9 +41,41 @@ async function uploadAudioToSupabase(buffer: Buffer, contentType: string, ext = 
     process.env.VITE_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseKey) return null;
+  return createClient(supabaseUrl, supabaseKey);
+}
+
+async function getLiveVoiceStudioGateway(supabase: any): Promise<{ online: boolean; tunnelUrl: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from("ai_jobs")
+      .select("input_url, status, updated_at")
+      .eq("id", RESERVED_VOICE_STUDIO_ID)
+      .maybeSingle();
+
+    if (error || !data || !data.input_url || data.status === "offline") {
+      return { online: false, tunnelUrl: null };
+    }
+
+    const tunnelUrl = String(data.input_url).trim().replace(/\/+$/, "");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000);
+    const res = await fetch(`${tunnelUrl}/health`, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      return { online: true, tunnelUrl };
+    }
+    return { online: false, tunnelUrl };
+  } catch {
+    return { online: false, tunnelUrl: null };
+  }
+}
+
+async function uploadAudioToSupabase(buffer: Buffer, contentType: string, ext = "wav"): Promise<string | null> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
 
   try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const fileName = `voices/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
     const { error: uploadError } = await supabase.storage.from("audio").upload(fileName, buffer, {
       contentType,
@@ -65,7 +99,6 @@ async function uploadAudioToSupabase(buffer: Buffer, contentType: string, ext = 
  * Genera audio real en español sin límites ni credenciales requeridas.
  */
 async function generateFallbackAudio(text: string): Promise<{ buffer: Buffer; mimeType: string }> {
-  // Dividir en fragmentos razonables para el endpoint
   const chunks = text.match(/[^.!?]+[.!?]+|\S+/g) || [text];
   const audioBuffers: Buffer[] = [];
 
@@ -118,29 +151,68 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { text, voice, tone } = req.body || {};
+  const { text, voice, tone, role, characterName, gender } = req.body || {};
   if (!text || typeof text !== "string") {
     return res.status(400).json({ error: "Falta el texto a sintetizar" });
   }
 
   const cleanText = text.trim();
 
-  // Mapear voz solicitada a una voz válida de Gemini (evitando 400 por voces tipo 'es-ES-Neural2-B')
+  // Mapear voz solicitada a una voz válida de Gemini
   let voiceName = "Fenrir";
   const lowerVoice = (voice || "").toLowerCase();
   if (VALID_GEMINI_VOICES[lowerVoice]) {
     voiceName = VALID_GEMINI_VOICES[lowerVoice];
-  } else if (lowerVoice.includes("female") || lowerVoice.includes("mujer") || lowerVoice.includes("kore") || lowerVoice.includes("salome")) {
+  } else if (lowerVoice.includes("female") || lowerVoice.includes("mujer") || lowerVoice.includes("kore") || lowerVoice.includes("salome") || lowerVoice.includes("cebolla")) {
     voiceName = "Kore";
-  } else if (lowerVoice.includes("puck")) {
+  } else if (lowerVoice.includes("puck") || lowerVoice.includes("niño") || lowerVoice.includes("niña") || lowerVoice.includes("child")) {
     voiceName = "Puck";
   } else {
     voiceName = "Fenrir";
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const supabase = getSupabaseClient();
 
-  // 1. Intento primario con Gemini Flash TTS si existe API key
+  // 1. Prioridad: Si Colab Voice Studio está activo, generar con voces multi-personaje de alta fidelidad
+  if (supabase) {
+    const voiceGateway = await getLiveVoiceStudioGateway(supabase);
+    if (voiceGateway.online && voiceGateway.tunnelUrl) {
+      try {
+        console.log(`[Voice Studio Colab] Enviando síntesis a ${voiceGateway.tunnelUrl}...`);
+        const synthRes = await fetch(`${voiceGateway.tunnelUrl}/synthesize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: cleanText,
+            role: role || (voiceName === "Kore" ? "adult_female" : voiceName === "Puck" ? "child_boy" : "adult_male"),
+            character_name: characterName || undefined,
+            gender: gender || (voiceName === "Kore" ? "female" : "male"),
+            tone: tone || undefined,
+          }),
+        });
+
+        if (synthRes.ok) {
+          const synthData = (await synthRes.json()) as any;
+          if (synthData.audio_base64) {
+            const audioBuf = Buffer.from(synthData.audio_base64, "base64");
+            const audioUrl = await uploadAudioToSupabase(audioBuf, "audio/wav", "wav");
+            return res.status(200).json({
+              success: true,
+              audioUrl: audioUrl || null,
+              audioBase64: synthData.audio_base64,
+              mimeType: "audio/wav",
+              provider: "colab-voice-studio",
+            });
+          }
+        }
+      } catch (colabErr: any) {
+        console.warn("[Voice Studio Colab Warning]:", colabErr?.message || colabErr);
+      }
+    }
+  }
+
+  // 2. Motor secundario: Gemini Flash TTS si existe API key
+  const apiKey = process.env.GEMINI_API_KEY;
   if (apiKey) {
     try {
       const ai = new GoogleGenAI({
@@ -175,7 +247,7 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // 2. Respaldo Resiliente (Cero errores 429 de cuota o 400 de argumentos)
+  // 3. Respaldo Resiliente (Cero errores 429 de cuota o 400 de argumentos)
   try {
     const fallback = await generateFallbackAudio(cleanText);
     const audioUrl = await uploadAudioToSupabase(fallback.buffer, fallback.mimeType, "mp3");
