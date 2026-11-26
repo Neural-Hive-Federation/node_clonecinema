@@ -41,6 +41,18 @@ export function CastTab({
 
   const { openPaywall, refreshAccount } = useSession();
 
+  const availableFrames =
+    project.sourceMeta?.frames && project.sourceMeta.frames.length > 0
+      ? project.sourceMeta.frames
+      : (project.shots || [])
+          .filter((s) => Boolean(s.imageUrl))
+          .map((s) => ({
+            shotNumber: s.number,
+            timestampSec: s.seconds,
+            frameUrl: s.imageUrl!,
+            role: s.title || `Plano ${s.number}`,
+          }));
+
   const setCharacters = (characters: Character[]) => patch({ characters });
   const setLocations = (locations: LocationRef[]) => patch({ locations });
   const setProps = (props: PropItem[]) => patch({ props });
@@ -334,7 +346,7 @@ export function CastTab({
                         </label>
 
                         {/* Tomar fotograma del video fuente */}
-                        {project.sourceMeta?.frames && project.sourceMeta.frames.length > 0 && (
+                        {availableFrames.length > 0 && (
                           <button
                             type="button"
                             className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10.5px] font-semibold text-amber-300 hover:bg-amber-500/20 hover:border-amber-400 transition cursor-pointer"
@@ -633,7 +645,7 @@ export function CastTab({
                           </label>
 
                           {/* Tomar fotograma del video fuente */}
-                          {project.sourceMeta?.frames && project.sourceMeta.frames.length > 0 && (
+                          {availableFrames.length > 0 && (
                             <button
                               type="button"
                               className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10.5px] font-semibold text-amber-300 hover:bg-amber-500/20 hover:border-amber-400 transition cursor-pointer"
@@ -803,7 +815,7 @@ export function CastTab({
                           </label>
 
                           {/* Tomar fotograma del video fuente */}
-                          {project.sourceMeta?.frames && project.sourceMeta.frames.length > 0 && (
+                          {availableFrames.length > 0 && (
                             <button
                               type="button"
                               className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10.5px] font-semibold text-amber-300 hover:bg-amber-500/20 hover:border-amber-400 transition cursor-pointer"
@@ -881,9 +893,9 @@ export function CastTab({
       )}
 
       {/* Modal para Tomar Fotograma del Video Fuente */}
-      {sourceFrameTarget && project.sourceMeta?.frames && (
+      {sourceFrameTarget && availableFrames.length > 0 && (
         <SourceFramePickerModal
-          frames={project.sourceMeta.frames}
+          frames={availableFrames}
           targetTitle={sourceFrameTarget.name}
           targetType={sourceFrameTarget.type}
           onSelectFrame={(selectedUrl) => {

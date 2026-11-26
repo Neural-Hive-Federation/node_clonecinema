@@ -417,7 +417,7 @@ export default async function handler(req: any, res: any) {
     }
 
     const defaultNegative = isStylizedOrNonHuman
-      ? "real human head, real human face, human skin on head, human hair, photorealistic human face, real human woman face, deformed, ugly, blurry, low quality, bad hands, extra limbs, dark, disfigured, text, watermark"
+      ? "human, woman, girl, female person, human head, human face, human skin, human hair, hair, hairstyle, curls, hair bun, flowers on head, photorealistic human, realistic person, deformed, ugly, blurry, low quality, bad hands, extra limbs, dark, disfigured, text, watermark"
       : "ugly, deformed, noisy, blurry, distorted, low quality, bad hands, lowres, collage, split screen";
 
     const resolvedNegative = negativePrompt || negative_prompt || defaultNegative;

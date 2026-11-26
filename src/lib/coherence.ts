@@ -18,11 +18,11 @@ export function isNonHumanCharacter(text: string): boolean {
 }
 
 /**
- * Limpia adjetivos que puedan inducir a Playground v2.5 / Flux a pintar personas 100% humanas.
+ * Limpia adjetivos que puedan inducir a Playground v2.5 / Flux a pintar personas 100% humanas o adornos florales.
  */
 function sanitizeNonHumanText(text: string): string {
   return text
-    .replace(/\b(rostro humano|piel humana|humana 100%|humano 100%|portrait)\b/gi, "")
+    .replace(/\b(rostro humano|piel humana|humana 100%|humano 100%|portrait|humana|humano|mujer|señora|chica|floral|flores)\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -30,7 +30,7 @@ function sanitizeNonHumanText(text: string): string {
 /**
  * Generador maestro de Prompts (Positivo y Negativo) optimizado para Playground v2.5 / SDXL / Gemini.
  * Diseñado específicamente para que los personajes humanoides vegetales (como Mamá Cebolla)
- * mantengan su cuerpo humanoide femenino de señora/madre pero con cabeza literal de cebolla.
+ * mantengan su cabeza literal de cebolla 3D sin cabello ni rostros humanos.
  */
 export function getCharacterPrompts(char: Character, globalStyle?: string): { prompt: string; negativePrompt: string } {
   const combinedDesc = `${char.name} ${char.description} ${char.wardrobe || ""}`.toLowerCase();
@@ -39,12 +39,12 @@ export function getCharacterPrompts(char: Character, globalStyle?: string): { pr
   const styleAnchor = globalStyle ? `Art Style: ${globalStyle}.` : "Style: 3D animated CGI feature film character (Pixar and DreamWorks animation aesthetic).";
 
   if (isNonHuman) {
-    let specificAnatomy = "Anthropomorphic stylized 3D CGI character design. A humanoid body with stylized proportions, where the head is an organic cartoon creature.";
+    let specificAnatomy = "Anthropomorphic stylized 3D CGI character design. A living creature with stylized proportions, where the head is an organic cartoon vegetable.";
 
     if (combinedDesc.includes("cebolla") || combinedDesc.includes("onion")) {
-      specificAnatomy = "An anthropomorphic humanoid female character with a literal whole onion for a head. She has a feminine humanoid body of a mature lady and homemaker mother of the family, wearing a cozy purple collared blouse and a floral kitchen apron tied neatly around her waist. INSTEAD OF A HUMAN HEAD, HER ENTIRE HEAD IS PHYSICALLY A WHOLE YELLOW ONION BULB: a large spherical yellow onion vegetable with crisp golden papery peel texture, fine vertical onion skin ridges, and green root sprouts on top standing upright like a maternal hair bun. On the front of this yellow onion bulb are big expressive motherly cartoon eyes with gentle eyelashes and a warm smiling mouth. Gentle cartoon hands. A sweet loving motherly presence.";
+      specificAnatomy = "A 3D character model of an anthropomorphic living vegetable, cute yellow onion bulb person, 3D Pixar animation style. The head is literally a large round yellow onion vegetable bulb with crisp golden-yellow papery dry onion skin, fine peel ridges, and a twisted pointed onion sprout shoot on top. Bald onion peel, absolutely zero hair, no hair bun, no flowers. Large expressive cartoon animated eyes with cute pupils and a small sweet cartoon mouth rendered directly onto the front surface of the onion skin, soft rosy cheeks. Small stout body wearing a purple collared shirt and a simple kitchen apron. Adorable living onion creature.";
     } else if (combinedDesc.includes("patata") || combinedDesc.includes("papa") || combinedDesc.includes("potato")) {
-      specificAnatomy = "An anthropomorphic humanoid male character with a literal whole potato for a head. He has a stout humanoid male body of a hardworking father figure, wearing a rustic flannel shirt and denim work pants. INSTEAD OF A HUMAN HEAD, HIS ENTIRE HEAD IS PHYSICALLY A WHOLE BROWN RUSSET POTATO: an organic potato tuber with natural starchy peel texture and dimples. Friendly cartoon eyes and a warm smiling mouth are embedded directly onto the front surface of the potato. A loving paternal presence.";
+      specificAnatomy = "A 3D character model of an anthropomorphic living vegetable, cute brown potato tuber person, 3D Pixar animation style. The head is an organic brown russet potato with starchy dimpled peel texture. Bald potato skin, absolutely zero hair. Friendly cartoon eyes and smiling mouth rendered directly onto the front surface of the potato. Stout body wearing a flannel shirt. Adorable living potato creature.";
     }
 
     const cleanDesc = sanitizeNonHumanText(char.description);
@@ -52,8 +52,8 @@ export function getCharacterPrompts(char: Character, globalStyle?: string): { pr
 
     const prompt = `${styleAnchor} Full body 3D CGI character model sheet render. ${specificAnatomy} Character Context: ${cleanDesc}. ${cleanWardrobe ? `Outfit: ${cleanWardrobe}.` : ""}${loraTrigger} High-end 3D digital sculpture, cartoon shaders, soft subsurface scattering, cinematic studio rim lighting, clean render, 8k resolution, masterpiece.`;
 
-    // Negative prompt que elimina activamente rostros y cabezas humanas sin penalizar 'cartoon' ni 'bad anatomy'
-    const negativePrompt = "real human face, real human head, human skin on head, human hair, photorealistic human face, real human woman face, deformed, ugly, blurry, low quality, bad hands, extra limbs, dark, disfigured, text, watermark";
+    // Negative prompt que elimina activamente rostros humanos, mujeres, cabello, peinados y flores en la cabeza
+    const negativePrompt = "human, woman, girl, female person, human head, human face, human skin, human hair, hair, hairstyle, curls, hair bun, flowers on head, photorealistic human, realistic person, deformed, ugly, blurry, low quality, bad hands, extra limbs, dark, disfigured, text, watermark";
 
     return { prompt, negativePrompt };
   }
@@ -120,9 +120,9 @@ export function synthesizeShotPrompt(
       
       const charLower = `${char.name} ${char.description}`.toLowerCase();
       if (charLower.includes("cebolla") || charLower.includes("onion")) {
-        characterAnatomy = `Main Character: Mamá Cebolla, an anthropomorphic humanoid lady with a whole yellow onion for a head. Female humanoid body wearing a purple blouse and kitchen apron. Her entire head is a round yellow onion bulb with papery peel and expressive motherly cartoon eyes.`;
+        characterAnatomy = `Main Character: Mamá Cebolla, an anthropomorphic living yellow onion bulb character. A large round yellow onion vegetable for a head with crisp golden peel and a pointed sprout tip, bald onion surface with zero hair, expressive cartoon eyes and mouth directly on the onion skin. Small compact body wearing a purple blouse and kitchen apron.`;
       } else if (charLower.includes("patata") || charLower.includes("papa") || charLower.includes("potato")) {
-        characterAnatomy = `Main Character: Papá Patata, an anthropomorphic humanoid father with a whole russet potato for a head. Stout humanoid body wearing a flannel shirt. Head is an organic brown potato with cartoon eyes.`;
+        characterAnatomy = `Main Character: Papá Patata, an anthropomorphic living potato character. An organic brown russet potato for a head with starchy dimpled peel, bald surface with zero hair, friendly cartoon eyes and mouth directly on the potato. Stout body wearing a flannel shirt.`;
       }
       parts.push(characterAnatomy);
     } else {
