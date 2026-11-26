@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { AudioLines, Clock, Music4, Play, Volume2, Sparkles, CheckCircle2, AlertTriangle, Upload, Wand2 } from "lucide-react";
+import { AudioLines, Clock, Music4, Play, Volume2, Sparkles, CheckCircle2, AlertTriangle, Upload, Wand2, ListFilter, Check, X, ChevronDown, CheckSquare, Square, StopCircle } from "lucide-react";
 import type { Project, ProjectUpdater, Shot } from "../../types";
 import { generateSpeech } from "../../lib/api";
 import { getSupabase } from "../../lib/supabase";
@@ -20,6 +20,47 @@ export function AudioTab({
   const [uploadingBgm, setUploadingBgm] = useState(false);
   const [generatingMusic, setGeneratingMusic] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Estados para selección y generación por lote de audios
+  const [selectedForBatch, setSelectedForBatch] = useState<string[]>([]);
+  const [showBatchModal, setShowBatchModal] = useState(false);
+  const [bulkGenerating, setBulkGenerating] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number; title: string } | null>(null);
+  const abortBulkRef = useRef(false);
+
+  const toggleShotSelection = (shotId: string) => {
+    setSelectedForBatch((prev) =>
+      prev.includes(shotId) ? prev.filter((id) => id !== shotId) : [...prev, shotId]
+    );
+  };
+
+  const selectAllShots = () => {
+    setSelectedForBatch((project.shots || []).map((s) => s.id));
+  };
+
+  const selectEmptyShots = () => {
+    setSelectedForBatch((project.shots || []).filter((s) => !s.audioUrl).map((s) => s.id));
+  };
+
+  const clearSelection = () => {
+    setSelectedForBatch([]);
+  };
+
+  // Sincronizar guion maestro unificado a partir de los textos de cada plano
+  function syncNarrationFromShots() {
+    const lines = (project.shots || [])
+      .map((s) => (s.voiceover || s.dialogue || "").trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) {
+      setError("Los planos aún no tienen diálogos ni voz en off para compilar.");
+      return;
+    }
+
+    const unified = lines.join(" ");
+    setAudio({ narration: unified });
+    setError(null);
+  }
 
   // Subir pista propia a Supabase Storage (Bucket: audio/bgm)
   async function handleBgmUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -156,12 +197,32 @@ export function AudioTab({
     }
   }
 
-  // Generar todas las voces de los planos en lote
-  async function narrateAllShots() {
+  // Generar voces seleccionadas o todas en lote de forma secuencial y ordenada
+  async function narrateBatch(targetIds?: string[]) {
+    const ids = targetIds || (selectedForBatch.length > 0 ? selectedForBatch : (project.shots || []).map((s) => s.id));
+    const targetShots = (project.shots || [])
+      .filter((s) => ids.includes(s.id))
+      .sort((a, b) => a.number - b.number);
+
+    if (targetShots.length === 0) return;
+
+    setBulkGenerating(true);
+    abortBulkRef.current = false;
     setError(null);
-    for (const shot of (project.shots || [])) {
+
+    let count = 0;
+    for (const shot of targetShots) {
+      if (abortBulkRef.current) break;
       const textToSpeak = (shot.voiceover || shot.dialogue || "").trim();
       if (!textToSpeak) continue;
+
+      count++;
+      setBulkProgress({
+        current: count,
+        total: targetShots.length,
+        title: `Plano ${shot.number}: "${shot.title || textToSpeak.slice(0, 25)}..."`
+      });
+
       setLoadingShotIds((prev) => [...prev, shot.id]);
       try {
         const url = await generateSpeech(textToSpeak, project.audio.voice);
@@ -172,6 +233,9 @@ export function AudioTab({
         setLoadingShotIds((prev) => prev.filter((id) => id !== shot.id));
       }
     }
+
+    setBulkGenerating(false);
+    setBulkProgress(null);
   }
 
   // Estimador de tiempo de lectura en español (aprox. 2.8 palabras/segundo)
@@ -192,6 +256,16 @@ export function AudioTab({
         <Section
           title="Narración / voz en off maestra"
           subtitle="Guion general que unifica el tono de la pieza."
+          action={
+            <button
+              type="button"
+              onClick={syncNarrationFromShots}
+              className="btn btn-ghost text-[11px] border border-signal/40 bg-signal/10 text-signal hover:bg-signal/20 flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+              title="Compilar y acoplar el guion maestro automáticamente a partir de los textos de los 19 planos"
+            >
+              <Wand2 size={12} /> Acoplar con los planos ({project.shots.length})
+            </button>
+          }
         >
           <textarea
             className="field min-h-[100px] resize-y text-[12px] leading-relaxed"
@@ -238,17 +312,92 @@ export function AudioTab({
         <Section
           title="Locución y Audios individuales por Plano"
           subtitle="Cada toma tiene su archivo de audio sincronizado con los segundos del video."
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className={`btn btn-ghost text-[11.5px] border flex items-center gap-1.5 transition ${
+                  selectedForBatch.length > 0
+                    ? "border-signal/50 bg-signal/15 text-signal hover:bg-signal/25 font-semibold shadow-xs"
+                    : "border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white"
+                }`}
+                onClick={() => setShowBatchModal(true)}
+                title="Selecciona planos específicos para generar voces en lote"
+              >
+                <ListFilter size={13} className={selectedForBatch.length > 0 ? "text-signal" : "text-zinc-400"} />
+                <span>
+                  {selectedForBatch.length > 0 ? `Lote (${selectedForBatch.length} seleccionados)` : "Seleccionar lote"}
+                </span>
+                <ChevronDown size={11} className={selectedForBatch.length > 0 ? "text-signal" : "text-zinc-500"} />
+              </button>
+
+              {selectedForBatch.length > 0 ? (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-primary text-[11.5px] border border-signal/50 bg-signal/25 text-signal hover:bg-signal hover:text-black font-bold flex items-center gap-1.5 shadow-md cursor-pointer transition-all"
+                    onClick={() => narrateBatch(selectedForBatch)}
+                    disabled={bulkGenerating}
+                    title={`Generar voces únicamente para los ${selectedForBatch.length} planos seleccionados`}
+                  >
+                    {bulkGenerating ? <Spinner size={13} /> : <Sparkles size={13} />}
+                    <span>✨ Generar selección ({selectedForBatch.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost text-[11px] text-zinc-500 hover:text-red-400 px-2 py-1 border border-zinc-800/80 hover:border-red-500/30 rounded-lg transition"
+                    onClick={clearSelection}
+                    title="Deseleccionar todos los planos"
+                  >
+                    <X size={12} /> Desmarcar
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => narrateBatch()}
+                  disabled={bulkGenerating}
+                  className="btn btn-ghost text-[11px] border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white flex items-center gap-1.5 transition cursor-pointer"
+                  title="Generar todas las voces en lote"
+                >
+                  <Sparkles size={12} className="text-signal" /> Generar todas ({project.shots.length})
+                </button>
+              )}
+            </div>
+          }
         >
-          <div className="flex items-center justify-between pb-1">
-            <span className="text-[11px] text-zinc-400">
+          {bulkGenerating && bulkProgress && (
+            <div className="mb-4 flex items-center justify-between rounded-xl border border-signal/50 bg-signal/10 p-3 shadow-md animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <Spinner size={16} />
+                <div>
+                  <div className="text-[12px] font-bold text-white flex items-center gap-2">
+                    <span>Generando lote de voces... ({bulkProgress.current} de {bulkProgress.total})</span>
+                  </div>
+                  <div className="text-[11px] text-zinc-400 truncate max-w-md">
+                    {bulkProgress.title}
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { abortBulkRef.current = true; }}
+                className="flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[11px] font-semibold text-red-300 hover:bg-red-500/20 transition cursor-pointer"
+              >
+                <StopCircle size={13} /> Detener lote
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pb-1 text-[11px] text-zinc-400">
+            <span>
               {(project.shots || []).filter((s) => Boolean(s.audioUrl)).length} de {(project.shots || []).length} audios listos
             </span>
-            <button
-              onClick={narrateAllShots}
-              className="text-[11px] font-semibold text-signal hover:underline flex items-center gap-1.5"
-            >
-              <Sparkles size={12} /> Generar todas las voces en lote
-            </button>
+            {selectedForBatch.length > 0 && (
+              <span className="text-signal font-semibold">
+                {selectedForBatch.length} marcados para lote
+              </span>
+            )}
           </div>
 
           {(project.shots || []).length === 0 ? (
@@ -261,19 +410,34 @@ export function AudioTab({
                 const shotSec = Number(s.seconds) || 3;
                 const isOverDuration = estimatedSec > shotSec + 0.5;
                 const isGenerating = loadingShotIds.includes(s.id);
+                const isChecked = selectedForBatch.includes(s.id);
 
                 return (
                   <div
                     key={s.id}
                     className={`rounded-xl border p-3 transition-colors ${
-                      s.audioUrl
+                      isChecked
+                        ? "border-signal/50 bg-signal/5 ring-1 ring-signal/20"
+                        : s.audioUrl
                         ? "border-emerald-500/30 bg-emerald-950/10"
                         : "border-zinc-800/80 bg-zinc-900/40"
                     }`}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-display text-[12px] font-bold text-zinc-400 bg-zinc-800/80 px-2 py-0.5 rounded-md">
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          onClick={() => toggleShotSelection(s.id)}
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition cursor-pointer ${
+                            isChecked
+                              ? "bg-signal text-black border-signal shadow-xs"
+                              : "border-zinc-700 bg-zinc-800/60 text-transparent hover:border-zinc-500"
+                          }`}
+                          title="Marcar / desmarcar para lote"
+                        >
+                          <Check size={12} className="stroke-[3]" />
+                        </div>
+
+                        <span className="font-display text-[12px] font-bold text-zinc-300 bg-zinc-800/80 px-2 py-0.5 rounded-md">
                           Plano {s.number}
                         </span>
                         <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1">
@@ -480,6 +644,157 @@ export function AudioTab({
           </ul>
         </Section>
       </div>
+
+      {/* Modal de Selección de Lote de Voces */}
+      {showBatchModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl">
+            {/* Cabecera */}
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-signal/30 bg-signal/10 text-signal shadow-inner">
+                  <Volume2 size={18} />
+                </div>
+                <div>
+                  <h3 className="font-display text-base font-bold text-white flex items-center gap-2">
+                    Generación de Lote de Voces
+                    <span className="rounded-md bg-zinc-800 px-2 py-0.5 text-[11px] font-normal text-zinc-400">
+                      {project.shots.length} planos disponibles
+                    </span>
+                  </h3>
+                  <p className="text-[12px] text-zinc-400">
+                    Marca los planos cuyas voces deseas generar o actualizar en lote sin alterar el resto.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBatchModal(false)}
+                className="rounded-lg p-1.5 text-zinc-400 hover:bg-zinc-900 hover:text-white transition cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Filtros rápidos */}
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-zinc-900/60 p-2.5 border border-zinc-800/80">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-zinc-400">Filtros rápidos:</span>
+                <button
+                  type="button"
+                  onClick={selectAllShots}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800/80 px-2.5 py-1 text-[11px] font-medium text-zinc-200 hover:border-signal/50 hover:text-white transition cursor-pointer"
+                >
+                  Seleccionar todos ({project.shots.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={selectEmptyShots}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800/80 px-2.5 py-1 text-[11px] font-medium text-zinc-200 hover:border-signal/50 hover:text-white transition cursor-pointer"
+                >
+                  Solo sin audio ({(project.shots || []).filter((s) => !s.audioUrl).length})
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={clearSelection}
+                  className="text-[11px] text-zinc-500 hover:text-red-400 transition cursor-pointer px-1"
+                >
+                  Deseleccionar todos
+                </button>
+              </div>
+            </div>
+
+            {/* Cuadrícula de planos con selección individual */}
+            <div className="mt-4 max-h-[360px] overflow-y-auto pr-1 space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {project.shots.map((shot) => {
+                  const isChecked = selectedForBatch.includes(shot.id);
+                  const textLine = (shot.voiceover || shot.dialogue || "").trim();
+
+                  return (
+                    <div
+                      key={shot.id}
+                      onClick={() => toggleShotSelection(shot.id)}
+                      className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border transition cursor-pointer select-none ${
+                        isChecked
+                          ? "border-signal/60 bg-signal/10 ring-1 ring-signal/30"
+                          : "border-zinc-800/80 bg-zinc-900/40 hover:border-zinc-700 hover:bg-zinc-900/80"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div
+                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition ${
+                            isChecked
+                              ? "bg-signal text-black border-signal shadow-sm"
+                              : "border-zinc-700 bg-zinc-800/50 text-transparent"
+                          }`}
+                        >
+                          <Check size={14} className="stroke-[3]" />
+                        </div>
+
+                        <div className="overflow-hidden">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-[12px] text-white">Plano {shot.number}</span>
+                            <span className="text-[10px] text-zinc-500 font-mono">({shot.seconds}s)</span>
+                          </div>
+                          <div className="truncate text-[11px] text-zinc-400">
+                            {textLine ? `«${textLine}»` : <span className="italic text-zinc-600">Sin texto asignado</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-[10px]">
+                        {shot.audioUrl ? (
+                          <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-emerald-400 font-medium">
+                            Listo
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-zinc-800 border border-zinc-700 px-2 py-0.5 text-zinc-400">
+                            Sin audio
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer con resumen y botón de ejecución */}
+            <div className="mt-5 flex items-center justify-between border-t border-zinc-800 pt-4">
+              <div className="text-[12px] text-zinc-400">
+                <span className="font-bold text-signal text-sm">{selectedForBatch.length}</span>{" "}
+                {selectedForBatch.length === 1 ? "plano seleccionado" : "planos seleccionados"}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBatchModal(false)}
+                  className="btn btn-ghost text-[12px] text-zinc-400 hover:text-white cursor-pointer"
+                >
+                  Cerrar
+                </button>
+                <button
+                  type="button"
+                  disabled={selectedForBatch.length === 0 || bulkGenerating}
+                  onClick={() => {
+                    setShowBatchModal(false);
+                    narrateBatch(selectedForBatch);
+                  }}
+                  className="btn btn-primary text-[12px] border border-signal/50 bg-signal text-black font-bold flex items-center gap-1.5 shadow-lg shadow-signal/20 disabled:opacity-50 cursor-pointer"
+                >
+                  <Sparkles size={14} />
+                  <span>Generar voces ({selectedForBatch.length})</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
