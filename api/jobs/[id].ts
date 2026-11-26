@@ -165,7 +165,98 @@ export default async function handler(req: any, res: any) {
         jobId: job.id,
         status: "error",
         done: true,
-        error: job.error || "La generación en Kaggle falló.",
+        error: job.error || "La generación falló.",
+      });
+    }
+
+    // 2.5. Si es un trabajo del Servidor Caliente Wan 2.1 ComfyUI
+    if (job.provider === "wan22_tunnel") {
+      const { data: gw } = await supabase
+        .from("ai_jobs")
+        .select("input_url")
+        .eq("id", "a0000000-0000-0000-0000-000000000001")
+        .maybeSingle();
+
+      const tunnelUrl = gw?.input_url?.trim().replace(/\/+$/, "");
+      if (!tunnelUrl || !job.kernel_ref) {
+        return res.status(200).json({
+          success: true,
+          jobId: job.id,
+          status: "running",
+          done: false,
+        });
+      }
+
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 4000);
+        const histRes = await fetch(`${tunnelUrl}/history/${encodeURIComponent(job.kernel_ref)}`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (histRes.ok) {
+          const histData = (await histRes.json()) as any;
+          const promptHist = histData[job.kernel_ref];
+          if (promptHist && promptHist.outputs) {
+            let foundMedia: { filename: string; subfolder?: string; type?: string } | null = null;
+            for (const nodeId of Object.keys(promptHist.outputs)) {
+              const nodeOut = promptHist.outputs[nodeId];
+              const files = nodeOut.gifs || nodeOut.videos || nodeOut.images;
+              if (Array.isArray(files) && files.length > 0) {
+                foundMedia = files[0];
+                break;
+              }
+            }
+
+            if (foundMedia && foundMedia.filename) {
+              const downloadUrl = `${tunnelUrl}/view?filename=${encodeURIComponent(foundMedia.filename)}&subfolder=${encodeURIComponent(foundMedia.subfolder || "")}&type=${encodeURIComponent(foundMedia.type || "output")}`;
+              const fileRes = await fetch(downloadUrl);
+              if (fileRes.ok) {
+                const buf = Buffer.from(await fileRes.arrayBuffer());
+                const ext = foundMedia.filename.split(".").pop() || "webp";
+                const isWebp = ext.toLowerCase() === "webp";
+                const isMp4 = ext.toLowerCase() === "mp4";
+                const contentType = isWebp ? "image/webp" : isMp4 ? "video/mp4" : "video/webm";
+                const filename = `comfy_video_${job.id}_${Date.now()}.${ext}`;
+
+                await supabase.storage.from("videos").upload(filename, buf, {
+                  contentType,
+                  upsert: true,
+                });
+
+                const { data: pubData } = supabase.storage.from("videos").getPublicUrl(filename);
+                const finalUrl = pubData?.publicUrl || downloadUrl;
+
+                await supabase
+                  .from("ai_jobs")
+                  .update({
+                    status: "done",
+                    output_url: finalUrl,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("id", job.id);
+
+                return res.status(200).json({
+                  success: true,
+                  jobId: job.id,
+                  status: "done",
+                  done: true,
+                  videoUrl: finalUrl,
+                });
+              }
+            }
+          }
+        }
+      } catch (comfyPollErr: any) {
+        console.warn("[ComfyUI Poll Warning]:", comfyPollErr?.message || comfyPollErr);
+      }
+
+      return res.status(200).json({
+        success: true,
+        jobId: job.id,
+        status: "running",
+        done: false,
       });
     }
 

@@ -7,6 +7,7 @@ export const config = {
 };
 
 const KAGGLE_API_BASE = "https://api.kaggle.com/v1";
+const RESERVED_TUNNEL_ID = "a0000000-0000-0000-0000-000000000001";
 
 function getKaggleAuthHeaders(): HeadersInit {
   const token =
@@ -81,10 +82,211 @@ function getSupabaseAdmin() {
   });
 }
 
-async function processImageSource(imageSource?: string | null, supabase?: any): Promise<{ b64?: string; url?: string }> {
+async function getLiveWanGateway(supabase: any): Promise<{ online: boolean; tunnelUrl: string | null }> {
+  try {
+    const { data, error } = await supabase
+      .from("ai_jobs")
+      .select("input_url, status, updated_at")
+      .eq("id", RESERVED_TUNNEL_ID)
+      .maybeSingle();
+
+    if (error || !data || !data.input_url || data.status === "offline") {
+      return { online: false, tunnelUrl: null };
+    }
+
+    const tunnelUrl = String(data.input_url).trim().replace(/\/+$/, "");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(`${tunnelUrl}/system_stats`, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      return { online: true, tunnelUrl };
+    }
+    return { online: false, tunnelUrl };
+  } catch {
+    return { online: false, tunnelUrl: null };
+  }
+}
+
+async function uploadImageToComfy(tunnelUrl: string, imageBuffer: Buffer, filename: string): Promise<string> {
+  const boundary = `----WebKitFormBoundary${randomUUID()}`;
+  const header = `--${boundary}\r\nContent-Disposition: form-data; name="image"; filename="${filename}"\r\nContent-Type: image/png\r\n\r\n`;
+  const footer = `\r\n--${boundary}\r\nContent-Disposition: form-data; name="overwrite"\r\n\r\ntrue\r\n--${boundary}--\r\n`;
+
+  const payload = Buffer.concat([
+    Buffer.from(header, "utf8"),
+    imageBuffer,
+    Buffer.from(footer, "utf8"),
+  ]);
+
+  const res = await fetch(`${tunnelUrl}/upload/image`, {
+    method: "POST",
+    headers: {
+      "Content-Type": `multipart/form-data; boundary=${boundary}`,
+    },
+    body: payload,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Error subiendo imagen a ComfyUI (${res.status}): ${await res.text()}`);
+  }
+
+  const data: any = await res.json();
+  return data.name || filename;
+}
+
+async function dispatchComfyWanPrompt(params: {
+  tunnelUrl: string;
+  jobId: string;
+  prompt: string;
+  negativePrompt?: string;
+  imageName: string;
+  aspectRatio?: string;
+  numFrames?: number;
+}): Promise<string> {
+  const { tunnelUrl, jobId, prompt, negativePrompt, imageName, aspectRatio, numFrames = 33 } = params;
+
+  const isLandscape = aspectRatio === "16:9";
+  const width = isLandscape ? 832 : 480;
+  const height = isLandscape ? 480 : 832;
+  const seed = Math.floor(Math.random() * 1000000000000);
+
+  const workflowPrompt: Record<string, any> = {
+    "1": {
+      "inputs": {
+        "unet_name": "wan2.1-i2v-14b-480p-q4_k_m.gguf"
+      },
+      "class_type": "LoaderGGUF"
+    },
+    "2": {
+      "inputs": {
+        "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        "type": "wan"
+      },
+      "class_type": "CLIPLoader"
+    },
+    "3": {
+      "inputs": {
+        "vae_name": "wan_2.1_vae.safetensors"
+      },
+      "class_type": "VAELoader"
+    },
+    "4": {
+      "inputs": {
+        "clip_name": "clip_vision_h.safetensors"
+      },
+      "class_type": "CLIPVisionLoader"
+    },
+    "5": {
+      "inputs": {
+        "image": imageName,
+        "upload": "image"
+      },
+      "class_type": "LoadImage"
+    },
+    "6": {
+      "inputs": {
+        "clip_vision": ["4", 0],
+        "image": ["5", 0]
+      },
+      "class_type": "CLIPVisionEncode"
+    },
+    "7": {
+      "inputs": {
+        "clip": ["2", 0],
+        "text": prompt
+      },
+      "class_type": "CLIPTextEncode"
+    },
+    "8": {
+      "inputs": {
+        "clip": ["2", 0],
+        "text": negativePrompt || "ugly, deformed, noisy, blurry, distorted, low quality, bad anatomy, bad hands, static picture"
+      },
+      "class_type": "CLIPTextEncode"
+    },
+    "9": {
+      "inputs": {
+        "width": width,
+        "height": height,
+        "length": numFrames,
+        "batch_size": 1,
+        "positive": ["7", 0],
+        "negative": ["8", 0],
+        "vae": ["3", 0],
+        "start_image": ["5", 0],
+        "clip_vision_output": ["6", 0]
+      },
+      "class_type": "WanImageToVideo"
+    },
+    "10": {
+      "inputs": {
+        "seed": seed,
+        "steps": 20,
+        "cfg": 6.0,
+        "sampler_name": "uni_pc",
+        "scheduler": "simple",
+        "denoise": 1.0,
+        "model": ["1", 0],
+        "positive": ["9", 0],
+        "negative": ["9", 1],
+        "latent_image": ["9", 2]
+      },
+      "class_type": "KSampler"
+    },
+    "11": {
+      "inputs": {
+        "samples": ["10", 0],
+        "vae": ["3", 0]
+      },
+      "class_type": "VAEDecode"
+    },
+    "12": {
+      "inputs": {
+        "filename_prefix": `Wan21_${jobId}`,
+        "fps": 16,
+        "lossless": false,
+        "quality": 90,
+        "method": "default",
+        "images": ["11", 0]
+      },
+      "class_type": "SaveAnimatedWEBP"
+    }
+  };
+
+  const res = await fetch(`${tunnelUrl}/prompt`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: jobId,
+      prompt: workflowPrompt,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`Error enviando workflow a ComfyUI (${res.status}): ${await res.text()}`);
+  }
+
+  const data: any = await res.json();
+  if (!data?.prompt_id) {
+    throw new Error("ComfyUI no devolvió un prompt_id válido.");
+  }
+
+  return data.prompt_id;
+}
+
+async function processImageSource(imageSource?: string | null, supabase?: any): Promise<{ b64?: string; url?: string; buffer?: Buffer }> {
   if (!imageSource || typeof imageSource !== "string") return {};
 
   if (imageSource.startsWith("http://") || imageSource.startsWith("https://")) {
+    try {
+      const res = await fetch(imageSource.trim());
+      if (res.ok) {
+        const buf = Buffer.from(await res.arrayBuffer());
+        return { url: imageSource.trim(), buffer: buf };
+      }
+    } catch {}
     return { url: imageSource.trim() };
   }
 
@@ -97,7 +299,7 @@ async function processImageSource(imageSource?: string | null, supabase?: any): 
     const inputBuf = Buffer.from(b64Data, "base64");
     const compressedBuf = await sharp(inputBuf)
       .resize(512, 512, { fit: "inside", withoutEnlargement: true })
-      .jpeg({ quality: 75 })
+      .jpeg({ quality: 80 })
       .toBuffer();
 
     if (supabase) {
@@ -109,12 +311,12 @@ async function processImageSource(imageSource?: string | null, supabase?: any): 
       if (!upErr) {
         const { data: pubData } = supabase.storage.from("keyframes").getPublicUrl(fileName);
         if (pubData?.publicUrl) {
-          return { url: pubData.publicUrl };
+          return { url: pubData.publicUrl, buffer: compressedBuf };
         }
       }
     }
 
-    return { b64: compressedBuf.toString("base64") };
+    return { b64: compressedBuf.toString("base64"), buffer: compressedBuf };
   } catch (e) {
     console.warn("[processImageSource warning]:", e);
     return {};
@@ -235,7 +437,6 @@ def main() -> None:
         with urllib.request.urlopen(req) as resp:
             raw_img = Image.open(io.BytesIO(resp.read())).convert("RGB")
     else:
-        # Generar imagen inicial de respaldo si no hay imagen provista
         raw_img = Image.new("RGB", (width, height), color=(20, 20, 25))
 
     current_image = load_image(raw_img.resize((width, height), Image.Resampling.LANCZOS))
@@ -251,7 +452,6 @@ def main() -> None:
         print(f"--- [Clip {clip_num}/{len(chain_prompts)}] ---")
         print(f"Prompt: {prompt[:200]}")
 
-        # Inferencia I2V
         output = pipe(
             image=current_image,
             prompt=prompt,
@@ -269,14 +469,11 @@ def main() -> None:
         dur_clip = round(time.time() - t_start, 1)
         print(f"[clonecinema] Clip {clip_num} completado en {dur_clip}s -> {clip_path}")
 
-        # Guardar en la secuencia maestra
         if idx == 0:
             master_frames.extend(clip_frames)
         else:
-            # Omitimos el frame [0] para evitar congelamiento de 1 cuadro en la costura
             master_frames.extend(clip_frames[1:])
 
-        # El último frame se convierte en el ancla del siguiente clip
         last_frame_raw = clip_frames[-1]
         if isinstance(last_frame_raw, Image.Image):
             last_frame_pil = last_frame_raw
@@ -329,24 +526,75 @@ export default async function handler(req: any, res: any) {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { prompt, aspectRatio, imageUrl, durationSeconds, seconds } = req.body || {};
+    const { prompt, aspectRatio, imageUrl, durationSeconds, seconds, negativePrompt } = req.body || {};
     if (!prompt || typeof prompt !== "string") {
       return res.status(400).json({ error: "Falta el prompt del video." });
     }
 
+    const supabase = getSupabaseAdmin();
+    const jobId = randomUUID();
+    const imageRef = await processImageSource(imageUrl, supabase);
+
+    // 1. Verificar si el Servidor Caliente de Wan 2.1 ComfyUI en Kaggle está online
+    const gateway = await getLiveWanGateway(supabase);
+    if (gateway.online && gateway.tunnelUrl) {
+      try {
+        console.log(`[Wan 2.1 Warm ComfyUI] Enviando tarea ${jobId} a ${gateway.tunnelUrl}...`);
+        let uploadedImageName = "input_frame.png";
+        if (imageRef.buffer) {
+          uploadedImageName = await uploadImageToComfy(
+            gateway.tunnelUrl,
+            imageRef.buffer,
+            `input_${jobId.slice(0, 8)}.png`
+          );
+        }
+
+        const promptId = await dispatchComfyWanPrompt({
+          tunnelUrl: gateway.tunnelUrl,
+          jobId,
+          prompt: prompt.trim(),
+          negativePrompt,
+          imageName: uploadedImageName,
+          aspectRatio: aspectRatio || "9:16",
+          numFrames: 33,
+        });
+
+        console.log(`[Wan 2.1 Warm ComfyUI] Prompt encolado con éxito. Prompt ID: ${promptId}`);
+
+        const { error: insertErr } = await supabase.from("ai_jobs").insert({
+          id: jobId,
+          kind: "video",
+          status: "running",
+          provider: "wan22_tunnel",
+          kernel_ref: promptId,
+          input_url: imageUrl || imageRef.url || null,
+          prompt: prompt.trim(),
+        });
+
+        if (insertErr) {
+          console.warn("[ai_jobs comfy insert warning]:", insertErr.message);
+        }
+
+        return res.status(200).json({
+          success: true,
+          jobId,
+          provider: "wan22_tunnel",
+          mode: "warm_comfyui",
+          promptId,
+        });
+      } catch (comfyErr: any) {
+        console.warn("[Wan 2.1 ComfyUI Error, haciendo fallback a Kaggle Script]:", comfyErr.message);
+      }
+    }
+
+    // 2. Fallback al Script de Kaggle (Modo Frío por Lotes)
     const targetSeconds = Number(durationSeconds || seconds || 2);
-    // Cada clip de 33 frames a 16 fps produce 2 segundos netos continuos
     const clipCount = Math.max(1, Math.min(6, Math.ceil(targetSeconds / 2.0)));
 
     const chainPrompts = Array.from({ length: clipCount }, (_, i) => {
       if (i === 0) return prompt.trim();
       return `${prompt.trim()}, continuous seamless camera motion, smooth cinematic continuation, phase ${i + 1}`;
     });
-
-    const supabase = getSupabaseAdmin();
-    const jobId = randomUUID();
-
-    const imageRef = await processImageSource(imageUrl, supabase);
 
     const payload = {
       job_id: jobId,
@@ -362,7 +610,7 @@ export default async function handler(req: any, res: any) {
     const payloadB64 = Buffer.from(JSON.stringify(payload), "utf-8").toString("base64");
     const scriptWithPayload = WAN_I2V_TEMPLATE.replace("__PAYLOAD_B64__", payloadB64);
 
-    console.log(`[Kaggle Submit Video] Enviando tarea ${jobId} a wilycol/clonecinema-wan-i2v...`);
+    console.log(`[Kaggle Submit Video Fallback] Enviando tarea ${jobId} a wilycol/clonecinema-wan-i2v...`);
     const { versionNumber } = await pushKaggleScript({
       slug: "wilycol/clonecinema-wan-i2v",
       title: "CloneCinema Wan I2V",
@@ -391,10 +639,10 @@ export default async function handler(req: any, res: any) {
       kernelVersion: versionNumber,
     });
   } catch (err: any) {
-    console.error("[generate/video Kaggle Error]:", err);
+    console.error("[generate/video Error]:", err);
     return res.status(500).json({
       success: false,
-      error: err?.message || "Error al enviar la tarea de render al cuaderno de Kaggle.",
+      error: err?.message || "Error al procesar la tarea de render de video.",
       details: String(err),
     });
   }
