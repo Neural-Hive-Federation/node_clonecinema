@@ -152,12 +152,14 @@ async function dispatchComfyWanPrompt(params: {
   const height = isLandscape ? 480 : 832;
   const seed = Math.floor(Math.random() * 1000000000000);
 
-  const workflowPrompt: Record<string, any> = {
+  // Workflow nativo para Wan 2.2 TI2V 5B (Kaggle Dataset sin descargas)
+  const workflowWan22: Record<string, any> = {
     "1": {
       "inputs": {
-        "unet_name": "wan2.1-i2v-14b-480p-q4_k_m.gguf"
+        "unet_name": "wan2.2_ti2v_5B_fp16.safetensors",
+        "weight_dtype": "fp8_e4m3fn"
       },
-      "class_type": "LoaderGGUF"
+      "class_type": "UNETLoader"
     },
     "2": {
       "inputs": {
@@ -168,88 +170,74 @@ async function dispatchComfyWanPrompt(params: {
     },
     "3": {
       "inputs": {
-        "vae_name": "wan_2.1_vae.safetensors"
+        "vae_name": "wan2.2_vae.safetensors"
       },
       "class_type": "VAELoader"
     },
     "4": {
-      "inputs": {
-        "clip_name": "clip_vision_h.safetensors"
-      },
-      "class_type": "CLIPVisionLoader"
-    },
-    "5": {
       "inputs": {
         "image": imageName,
         "upload": "image"
       },
       "class_type": "LoadImage"
     },
-    "6": {
-      "inputs": {
-        "clip_vision": ["4", 0],
-        "image": ["5", 0]
-      },
-      "class_type": "CLIPVisionEncode"
-    },
-    "7": {
+    "5": {
       "inputs": {
         "clip": ["2", 0],
         "text": prompt
       },
       "class_type": "CLIPTextEncode"
     },
-    "8": {
+    "6": {
       "inputs": {
         "clip": ["2", 0],
         "text": negativePrompt || "ugly, deformed, noisy, blurry, distorted, low quality, bad anatomy, bad hands, static picture"
       },
       "class_type": "CLIPTextEncode"
     },
-    "9": {
+    "7": {
       "inputs": {
         "width": width,
         "height": height,
         "length": numFrames,
         "batch_size": 1,
-        "positive": ["7", 0],
-        "negative": ["8", 0],
+        "positive": ["5", 0],
+        "negative": ["6", 0],
         "vae": ["3", 0],
-        "start_image": ["5", 0],
-        "clip_vision_output": ["6", 0]
+        "start_image": ["4", 0]
       },
       "class_type": "WanImageToVideo"
     },
-    "10": {
+    "8": {
       "inputs": {
         "seed": seed,
         "steps": 20,
-        "cfg": 6.0,
+        "cfg": 5.0,
         "sampler_name": "uni_pc",
         "scheduler": "simple",
         "denoise": 1.0,
         "model": ["1", 0],
-        "positive": ["9", 0],
-        "negative": ["9", 1],
-        "latent_image": ["9", 2]
+        "positive": ["7", 0],
+        "negative": ["7", 1],
+        "latent_image": ["7", 2]
       },
       "class_type": "KSampler"
     },
-    "11": {
+    "9": {
       "inputs": {
-        "samples": ["10", 0],
+        "samples": ["8", 0],
         "vae": ["3", 0]
       },
       "class_type": "VAEDecode"
     },
-    "12": {
+    "10": {
       "inputs": {
-        "filename_prefix": `Wan21_${jobId}`,
+        "filename_prefix": `Wan22_${jobId}`,
         "fps": 16,
         "lossless": false,
         "quality": 90,
         "method": "default",
-        "images": ["11", 0]
+        "images": ["9", 0]
       },
       "class_type": "SaveAnimatedWEBP"
     }
@@ -258,6 +246,11 @@ async function dispatchComfyWanPrompt(params: {
   const res = await fetch(`${tunnelUrl}/prompt`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: jobId,
+      prompt: workflowWan22,
+    }),
+  });
     body: JSON.stringify({
       client_id: jobId,
       prompt: workflowPrompt,
