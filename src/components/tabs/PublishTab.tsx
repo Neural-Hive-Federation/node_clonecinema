@@ -115,7 +115,9 @@ export function PublishTab({
           platforms: prev.publish?.platforms || [],
           coverPrompt: prompt,
           coverUrl,
+          masterVideoUrl: prev.publish?.masterVideoUrl || prev.masterVideoUrl,
         },
+        masterVideoUrl: prev.masterVideoUrl || prev.publish?.masterVideoUrl,
       }));
       void refreshAccount();
     } catch (err: any) {
@@ -134,6 +136,7 @@ export function PublishTab({
         platforms: prev.publish?.platforms || [],
         coverPrompt: prev.publish?.coverPrompt || "",
         coverUrl: prev.publish?.coverUrl,
+        masterVideoUrl: prev.publish?.masterVideoUrl || prev.masterVideoUrl,
         ...partial,
       },
     }));
@@ -152,7 +155,7 @@ export function PublishTab({
         >
           <Field label="Caption base">
             <textarea
-              className="field min-h-[70px] resize-y"
+              className="field h-24 max-h-32 resize-y text-xs"
               value={publish?.caption || ""}
               onChange={(e) => updatePublish({ caption: e.target.value })}
             />
@@ -160,7 +163,7 @@ export function PublishTab({
           <div className="mt-3">
             <Field label="Hashtags">
               <input
-                className="field"
+                className="field !py-1.5 !text-xs"
                 value={(publish?.hashtags || []).join(" ")}
                 onChange={(e) =>
                   updatePublish({
@@ -185,7 +188,7 @@ export function PublishTab({
               {copiedSocial ? "¡Copiado para WhatsApp / Redes!" : "Copiar Caption + #Hashtags para WhatsApp"}
             </button>
           </div>
-          {/* 🌐 Contenedores de Redes Sociales con Hipervínculos e Interacción Inteligente */}
+          {/* 🌐 Contenedores de Redes Sociales en Grid 2x2 ajustado a pantalla de computador */}
           <div className="mt-5 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[12px] font-semibold text-zinc-300 flex items-center gap-1.5">
@@ -195,7 +198,8 @@ export function PublishTab({
               <span className="text-[10px] text-zinc-500">Haz clic en cada botón para abrir y publicar</span>
             </div>
 
-            {/* Si no hay plataformas, proveemos los 4 contenedores estándar */}
+            {/* Grid 2 columnas para no desbordar verticalmente la pantalla */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {((publish?.platforms && publish.platforms.length > 0)
               ? publish.platforms
               : [
@@ -226,16 +230,16 @@ export function PublishTab({
               return (
                 <div
                   key={i}
-                  className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3.5 transition hover:border-zinc-700 space-y-2.5 shadow-sm"
+                  className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 transition hover:border-zinc-700 space-y-2 shadow-sm"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${badgeColor}`}>
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[10.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${badgeColor}`}>
                         {platformName}
                       </span>
                       {isCopied && (
-                        <span className="flex items-center gap-1 text-[11px] text-signal font-semibold animate-pulse">
-                          <Check size={12} /> ¡Copiado y abriendo plataforma!
+                        <span className="flex items-center gap-1 text-[10px] text-signal font-semibold animate-pulse">
+                          <Check size={11} /> ¡Copiado!
                         </span>
                       )}
                     </div>
@@ -243,7 +247,7 @@ export function PublishTab({
                     <button
                       type="button"
                       onClick={() => handleShareToPlatform(p, i)}
-                      className={`flex items-center gap-1.5 text-xs py-1 px-3 rounded-lg font-medium transition cursor-pointer ${
+                      className={`flex items-center gap-1 text-[11px] py-1 px-2.5 rounded-lg font-medium transition cursor-pointer ${
                         isWA
                           ? "bg-emerald-600/90 text-white hover:bg-emerald-500"
                           : isTT
@@ -256,35 +260,35 @@ export function PublishTab({
                       }`}
                       title={`Copiar datos y abrir ${platformName}`}
                     >
-                      {isCopied ? <Check size={13} /> : isWA ? <MessageCircle size={13} /> : <ExternalLink size={13} />}
+                      {isCopied ? <Check size={12} /> : isWA ? <MessageCircle size={12} /> : <ExternalLink size={12} />}
                       <span>
-                        {isWA ? "Abrir en WhatsApp" : isX ? "Publicar en X" : `Copiar y Abrir ${platformName.split(" ")[0]}`}
+                        {isWA ? "WhatsApp" : isX ? "X" : platformName.split(" ")[0]}
                       </span>
                     </button>
                   </div>
 
                   {/* Campo de Gancho editable */}
                   <div>
-                    <div className="flex items-center justify-between text-[10.5px] text-zinc-500 mb-1">
-                      <span>⚡ Gancho inicial (Hook):</span>
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-0.5">
+                      <span>⚡ Gancho (Hook):</span>
                     </div>
                     <input
                       type="text"
-                      className="field !py-1 !text-xs !bg-zinc-950/60"
+                      className="field !py-1 !px-2.5 !text-xs !bg-zinc-950/60"
                       value={p.hook || ""}
                       onChange={(e) => updatePlatform(i, { hook: e.target.value })}
-                      placeholder="Gancho de retención de los primeros 2 segundos..."
+                      placeholder="Gancho de los primeros 2s..."
                     />
                   </div>
 
                   {/* Campo de Copy / Descripción editable */}
                   <div>
-                    <div className="flex items-center justify-between text-[10.5px] text-zinc-500 mb-1">
-                      <span>📝 Copy / Descripción para el post:</span>
+                    <div className="flex items-center justify-between text-[10px] text-zinc-500 mb-0.5">
+                      <span>📝 Copy para el post:</span>
                     </div>
                     <textarea
                       rows={2}
-                      className="field !py-1.5 !text-xs !bg-zinc-950/60 resize-y"
+                      className="field !py-1.5 !px-2.5 !text-xs !bg-zinc-950/60 h-16 max-h-24 resize-none"
                       value={p.copy || ""}
                       onChange={(e) => updatePlatform(i, { copy: e.target.value })}
                       placeholder="Texto del post, llamada a la acción..."
@@ -293,6 +297,7 @@ export function PublishTab({
                 </div>
               );
             })}
+            </div>
           </div>
         </Section>
 

@@ -447,7 +447,7 @@ export function runContinuityAudit(project: Project): AuditIssue[] {
         const recommendedSec = Math.ceil(estimatedSec);
         issues.push({
           id: `audio_duration_overflow_${shot.id}`,
-          category: "storyboard",
+          category: "timing",
           severity: "warning",
           shotNumber: shot.number,
           shotId: shot.id,
@@ -465,6 +465,51 @@ export function runContinuityAudit(project: Project): AuditIssue[] {
           ],
         });
       }
+    }
+  }
+
+  // 12. Auditoría de Coherencia: Video renderizado vs longitud del Audio (Evitar audio entrecortado)
+  for (const shot of shots) {
+    const textLine = (shot.voiceover || shot.dialogue || "").trim();
+    const words = textLine ? textLine.split(/\s+/).filter(Boolean).length : 0;
+    const estimatedAudioSec = Math.max(1.5, Math.round((words / 2.5) * 10) / 10);
+    const audioSec = Number(shot.audioDuration) || (shot.audioUrl ? estimatedAudioSec : 0);
+    const targetSec = Number(shot.seconds) || 3;
+
+    // Si tiene video renderizado y el audio o guion requiere más tiempo del que ofrece un clip corto estándar (~2.06s)
+    if (shot.videoUrl && (audioSec > 2.3 || targetSec > 2.3)) {
+      const neededSec = Math.max(targetSec, Math.ceil(audioSec));
+      issues.push({
+        id: `video_too_short_for_audio_${shot.id}`,
+        category: "timing",
+        severity: "warning",
+        shotNumber: shot.number,
+        shotId: shot.id,
+        title: `El plano ${shot.number} es demasiado corto en vídeo para la longitud del audio`,
+        description: `El video renderizado es de ~2.1s pero el audio de este plano requiere ~${neededSec}s para completarse. La locución o los subtítulos podrían entrecortarse o quedar con imagen congelada.`,
+        detail: `Enviar a renderizar nuevamente el plano ${shot.number} para poder hacer que dure lo suficiente (${neededSec}s) y el audio con los subtítulos pueda oírse y leerse sin cortes.`,
+        fixes: [
+          {
+            label: `Enviar a renderizar nuevamente el Plano ${shot.number} (${neededSec}s)`,
+            run: (prev) => ({
+              shots: prev.shots.map((s) =>
+                s.id === shot.id
+                  ? {
+                      ...s,
+                      seconds: neededSec,
+                      status: "idle",
+                      videoUrl: undefined,
+                    }
+                  : s
+              ),
+              duration: prev.shots.reduce(
+                (acc, s) => acc + (s.id === shot.id ? neededSec : (s.seconds || 3)),
+                0
+              ),
+            }),
+          },
+        ],
+      });
     }
   }
 

@@ -279,13 +279,15 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
         setExportProgress(i);
       }
 
-      // Descargar el video master completo unificado (todos los 4 planos ensamblados)
+      // Descargar el video master completo unificado (todos los 19 planos ensamblados)
       const targetMasterVideo =
         project.masterVideoUrl ||
         (project as any).publish?.masterVideoUrl ||
-        (project.id === "prj-radar-social"
+        (project.id === "prj-7tegh8l"
+          ? "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/clonecinema_patatas_fritas_master_final.mp4"
+          : project.id === "prj-radar-social"
           ? "https://micjwzatshemmovaneix.supabase.co/storage/v1/object/public/videos/clonecinema_radar_social_master_final.mp4"
-          : shots.find((s) => s.videoUrl)?.videoUrl);
+          : null);
 
       if (targetMasterVideo) {
         try {
