@@ -526,11 +526,15 @@ export default async function handler(req: any, res: any) {
     const jobId = randomUUID();
     const imageRef = await processImageSource(imageUrl, supabase);
 
+    const targetSeconds = Number(durationSeconds || seconds || 3);
+    // Wan 2.1/2.2 genera múltiplos de 4 + 1 frames (16 fps): 33f = 2.06s, 49f = 3.06s, 65f = 4.06s, 81f = 5.06s
+    const calculatedFrames = targetSeconds <= 2 ? 33 : (targetSeconds <= 3 ? 49 : (targetSeconds <= 4 ? 65 : 81));
+
     // 1. Verificar si el Servidor Caliente de Wan 2.1 ComfyUI en Kaggle está online
     const gateway = await getLiveWanGateway(supabase);
     if (gateway.online && gateway.tunnelUrl) {
       try {
-        console.log(`[Wan 2.1 Warm ComfyUI] Enviando tarea ${jobId} a ${gateway.tunnelUrl}...`);
+        console.log(`[Wan 2.1 Warm ComfyUI] Enviando tarea ${jobId} a ${gateway.tunnelUrl} (${calculatedFrames} frames / ${targetSeconds}s)...`);
         let uploadedImageName = "input_frame.png";
         if (imageRef.buffer) {
           uploadedImageName = await uploadImageToComfy(
@@ -547,7 +551,7 @@ export default async function handler(req: any, res: any) {
           negativePrompt,
           imageName: uploadedImageName,
           aspectRatio: aspectRatio || "9:16",
-          numFrames: 33,
+          numFrames: calculatedFrames,
         });
 
         console.log(`[Wan 2.1 Warm ComfyUI] Prompt encolado con éxito. Prompt ID: ${promptId}`);

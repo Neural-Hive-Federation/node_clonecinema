@@ -36,6 +36,9 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
 
+  const masterVideoUrl = project.masterVideoUrl || project.publish?.masterVideoUrl;
+  const [playMasterVideo, setPlayMasterVideo] = useState(!!masterVideoUrl);
+
   // Referencias a elementos multimedia
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const musicAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -77,6 +80,18 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
 
   // Sincronizar video y audio cuando cambia el plano o se busca en la barra
   useEffect(() => {
+    if (playMasterVideo && masterVideoUrl) {
+      if (videoRef.current && videoRef.current.src !== masterVideoUrl) {
+        videoRef.current.src = masterVideoUrl;
+        videoRef.current.currentTime = currentTime;
+        videoRef.current.muted = isMuted;
+        if (isPlaying) {
+          videoRef.current.play().catch(() => {});
+        }
+      }
+      return;
+    }
+
     if (!currentShot) return;
 
     // Sincronizar video del plano
@@ -110,12 +125,39 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
         voiceAudioRef.current.src = "";
       }
     }
-  }, [activeIndex, currentShot?.id]);
+  }, [activeIndex, currentShot?.id, playMasterVideo, masterVideoUrl]);
 
   // Control del bucle de reproducción continuo
   useEffect(() => {
     if (isPlaying) {
       lastTimeRef.current = Date.now();
+
+      if (playMasterVideo && masterVideoUrl) {
+        if (videoRef.current) {
+          videoRef.current.muted = isMuted;
+          videoRef.current.play().catch(() => {});
+        }
+        if (musicAudioRef.current) musicAudioRef.current.pause();
+        if (voiceAudioRef.current) voiceAudioRef.current.pause();
+
+        const loop = () => {
+          if (videoRef.current && !videoRef.current.paused) {
+            const cur = videoRef.current.currentTime;
+            setCurrentTime(cur);
+            if (cur >= totalDuration) {
+              setIsPlaying(false);
+              return;
+            }
+          }
+          animationFrameRef.current = requestAnimationFrame(loop);
+        };
+        animationFrameRef.current = requestAnimationFrame(loop);
+        return () => {
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+          }
+        };
+      }
 
       // Iniciar música de fondo si existe
       if (musicAudioRef.current && project.audio.musicUrl) {
@@ -166,7 +208,7 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isPlaying, totalDuration, currentShot?.videoUrl, currentShot?.audioUrl, musicVolume, voiceVolume, isMuted]);
+  }, [isPlaying, totalDuration, currentShot?.videoUrl, currentShot?.audioUrl, musicVolume, voiceVolume, isMuted, playMasterVideo, masterVideoUrl]);
 
   // Actualizar volúmenes dinámicos
   useEffect(() => {
@@ -198,6 +240,9 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
+    if (playMasterVideo && masterVideoUrl && videoRef.current) {
+      videoRef.current.currentTime = newTime;
+    }
   };
 
   const jumpToShot = (index: number) => {
@@ -306,6 +351,37 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
 
         {/* Acciones principales */}
         <div className="flex items-center gap-2">
+          {/* Toggle Modo Master vs Timeline */}
+          {masterVideoUrl && (
+            <button
+              onClick={() => {
+                const next = !playMasterVideo;
+                setPlayMasterVideo(next);
+                if (videoRef.current) {
+                  videoRef.current.pause();
+                  if (next) {
+                    videoRef.current.src = masterVideoUrl;
+                    videoRef.current.currentTime = currentTime;
+                    videoRef.current.muted = isMuted;
+                  } else {
+                    videoRef.current.src = currentShot?.videoUrl || "";
+                    videoRef.current.currentTime = timeInShot;
+                    videoRef.current.muted = true;
+                  }
+                  if (isPlaying) videoRef.current.play().catch(() => {});
+                }
+              }}
+              className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all ${
+                playMasterVideo
+                  ? "border-signal bg-signal/20 text-signal shadow-sm shadow-signal/20"
+                  : "border-zinc-800 bg-zinc-900/80 text-zinc-400 hover:text-white"
+              }`}
+            >
+              <Film size={13} />
+              {playMasterVideo ? "🎬 Película Master (57s)" : "🎞️ Modo Timeline"}
+            </button>
+          )}
+
           {/* Selector de Subtítulos */}
           <div className="flex items-center gap-1.5 rounded-lg border border-zinc-800 bg-zinc-900/80 px-2.5 py-1 text-xs text-zinc-300">
             <Captions size={14} className={subtitlesEnabled ? "text-signal" : "text-zinc-600"} />
@@ -335,7 +411,7 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
             className="flex items-center gap-1.5 rounded-lg bg-signal px-3 py-1.5 text-xs font-semibold text-black transition-all hover:bg-emerald-400 disabled:opacity-50"
           >
             <Download size={13} />
-            {exporting ? `Exportando (${exportProgress}%)...` : "Descargar Video Master"}
+            {exporting ? `Exportando (${exportProgress}%)...` : masterVideoUrl ? "Descargar Video Master (57s)" : "Descargar Video Master"}
           </button>
         </div>
       </div>
