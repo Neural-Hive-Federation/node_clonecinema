@@ -3,6 +3,9 @@
   "buildCommand": "vite build",
   "outputDirectory": "dist",
   "rewrites": [
+    { "source": "/api/health", "destination": "/api/config?action=health" },
+    { "source": "/api/account/me", "destination": "/api/config?action=account" },
+    { "source": "/api/voice/register", "destination": "/api/wan/register?type=voice" },
     { "source": "/api/viral/mine-frames", "destination": "/api/viral/analyze?action=mine-frames" },
     { "source": "/api/viral/trending/status", "destination": "/api/viral/trending" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }

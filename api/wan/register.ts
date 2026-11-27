@@ -23,11 +23,25 @@ function getSupabaseAdmin() {
 }
 
 const RESERVED_TUNNEL_ID = "a0000000-0000-0000-0000-000000000001";
+const RESERVED_VOICE_STUDIO_ID = "a0000000-0000-0000-0000-000000000002";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST" && req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  const isVoice =
+    req.query?.type === "voice" ||
+    req.query?.service === "voice" ||
+    req.url?.includes("/voice");
+
+  const targetId = isVoice ? RESERVED_VOICE_STUDIO_ID : RESERVED_TUNNEL_ID;
+  const healthPath = isVoice ? "/health" : "/system_stats";
+  const kind = isVoice ? "audio" : "video";
+  const provider = isVoice ? "voice_studio" : "wan22_tunnel";
+  const serviceTitle = isVoice
+    ? "Colab Voice Studio - Kokoro Multi-Character TTS"
+    : "Kaggle Wan 2.1 ComfyUI Warm Server";
 
   try {
     const supabase = getSupabaseAdmin();
@@ -36,28 +50,30 @@ export default async function handler(req: any, res: any) {
       const { data, error } = await supabase
         .from("ai_jobs")
         .select("id, input_url, status, updated_at")
-        .eq("id", RESERVED_TUNNEL_ID)
+        .eq("id", targetId)
         .maybeSingle();
 
       if (error || !data || !data.input_url) {
-        return res.status(200).json({ online: false, tunnelUrl: null });
+        return res.status(200).json({ online: false, tunnelUrl: null, service: isVoice ? "voice" : "wan" });
       }
 
       const tunnelUrl = data.input_url.trim().replace(/\/+$/, "");
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 3500);
-        const check = await fetch(`${tunnelUrl}/system_stats`, { signal: controller.signal });
+        const check = await fetch(`${tunnelUrl}${healthPath}`, { signal: controller.signal });
         clearTimeout(timeout);
         return res.status(200).json({
           online: check.ok,
           tunnelUrl,
+          service: isVoice ? "voice" : "wan",
           lastHeartbeat: data.updated_at,
         });
       } catch {
         return res.status(200).json({
           online: false,
           tunnelUrl,
+          service: isVoice ? "voice" : "wan",
           lastHeartbeat: data.updated_at,
         });
       }
@@ -76,7 +92,7 @@ export default async function handler(req: any, res: any) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 4000);
-      const testRes = await fetch(`${cleanUrl}/system_stats`, { signal: controller.signal });
+      const testRes = await fetch(`${cleanUrl}${healthPath}`, { signal: controller.signal });
       clearTimeout(timeout);
       tunnelActive = testRes.ok;
     } catch {
@@ -85,19 +101,19 @@ export default async function handler(req: any, res: any) {
 
     const { error: upsertErr } = await supabase.from("ai_jobs").upsert(
       {
-        id: RESERVED_TUNNEL_ID,
-        kind: "video",
-        provider: "wan22_tunnel",
+        id: targetId,
+        kind,
+        provider,
         status: tunnelActive ? "running" : "offline",
         input_url: cleanUrl,
-        prompt: "Kaggle Wan 2.1 ComfyUI Warm Server",
+        prompt: serviceTitle,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
     );
 
     if (upsertErr) {
-      console.error("[wan/register error]:", upsertErr);
+      console.error("[tunnel/register error]:", upsertErr);
       return res.status(500).json({ error: upsertErr.message });
     }
 
@@ -105,12 +121,13 @@ export default async function handler(req: any, res: any) {
       success: true,
       online: tunnelActive,
       tunnelUrl: cleanUrl,
+      service: isVoice ? "voice" : "wan",
       message: tunnelActive
-        ? "Servidor Wan 2.1 ComfyUI conectado y verificado."
-        : "Túnel guardado, pero aún no responde a /system_stats.",
+        ? `${serviceTitle} conectado y verificado.`
+        : `Túnel guardado, pero aún no responde a ${healthPath}.`,
     });
   } catch (err: any) {
-    console.error("[wan/register fatal]:", err);
+    console.error("[tunnel/register fatal]:", err);
     return res.status(500).json({ error: err?.message || "Error registrando túnel." });
   }
 }
