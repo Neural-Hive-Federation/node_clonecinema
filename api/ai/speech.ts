@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
 
 function pcmToWav(pcm: Buffer, sampleRate = 24000, channels = 1, bits = 16): Buffer {
   const header = Buffer.alloc(44);
@@ -71,7 +72,7 @@ async function getLiveVoiceStudioGateway(supabase: any): Promise<{ online: boole
   }
 }
 
-async function uploadAudioToSupabase(buffer: Buffer, contentType: string, ext = "wav"): Promise<string | null> {
+async function uploadAudioToSupabase(buffer: Buffer, contentType: string, ext = "mp3"): Promise<string | null> {
   const supabase = getSupabaseClient();
   if (!supabase) return null;
 
@@ -95,8 +96,93 @@ async function uploadAudioToSupabase(buffer: Buffer, contentType: string, ext = 
 }
 
 /**
+ * Mapeo inteligente y exhaustivo a las voces Neural reales de Microsoft Edge TTS.
+ * Permite diferenciación real y clara entre Elvira (España), Dalia (México), Salomé (Colombia), etc.
+ */
+function resolveEdgeVoice(voice?: string, gender?: string, pitch = 0): { voiceName: string; pitchOffset: number } {
+  const v = (voice || "").toLowerCase();
+
+  if (v.includes("salome") || v.includes("cebolla")) {
+    return { voiceName: "es-CO-SalomeNeural", pitchOffset: 0 };
+  }
+  if (v.includes("dalia")) {
+    return { voiceName: "es-MX-DaliaNeural", pitchOffset: 0 };
+  }
+  if (v.includes("elvira")) {
+    return { voiceName: "es-ES-ElviraNeural", pitchOffset: 0 };
+  }
+  if (v.includes("alvaro") || v.includes("patata") || v.includes("padre")) {
+    return { voiceName: "es-ES-AlvaroNeural", pitchOffset: -5 };
+  }
+  if (v.includes("gonzalo") || v.includes("narrador")) {
+    return { voiceName: "es-CO-GonzaloNeural", pitchOffset: 0 };
+  }
+  if (v.includes("larissa") || v.includes("niña") || v.includes("fresa")) {
+    return { voiceName: "es-MX-LarissaNeural", pitchOffset: 12 };
+  }
+  if (v.includes("patatin") || v.includes("child-boy") || (v.includes("niño") && !v.includes("larissa"))) {
+    return { voiceName: "es-MX-JorgeNeural", pitchOffset: 25 };
+  }
+  if (v.includes("elder-female") || v.includes("abuelita")) {
+    return { voiceName: "es-ES-ElviraNeural", pitchOffset: -10 };
+  }
+  if (v.includes("elder-male") || v.includes("abuelo") || v.includes("don")) {
+    return { voiceName: "es-ES-AlvaroNeural", pitchOffset: -18 };
+  }
+  if (v.includes("jorge")) {
+    return { voiceName: "es-MX-JorgeNeural", pitchOffset: 0 };
+  }
+
+  // Si ya es un ID de Azure/Edge completo
+  if (voice && voice.includes("Neural")) {
+    return { voiceName: voice, pitchOffset: 0 };
+  }
+
+  // Fallbacks por género o modulación
+  if (gender === "female" || v.includes("female") || v.includes("mujer")) {
+    return { voiceName: "es-MX-DaliaNeural", pitchOffset: 0 };
+  }
+  if (pitch >= 20) {
+    return { voiceName: "es-MX-LarissaNeural", pitchOffset: 15 };
+  }
+  if (pitch <= -15) {
+    return { voiceName: "es-ES-AlvaroNeural", pitchOffset: -15 };
+  }
+
+  return { voiceName: "es-CO-GonzaloNeural", pitchOffset: 0 };
+}
+
+/**
+ * Síntesis nativa con Microsoft Edge TTS (Zero quota, alta fidelidad, latencia <1s).
+ */
+async function generateEdgeTTSAudio(
+  text: string,
+  voiceName: string,
+  pitchPercent = 0,
+  rateSpeed = 1.0
+): Promise<Buffer> {
+  const tts = new MsEdgeTTS();
+  await tts.setMetadata(voiceName, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+
+  const pitchStr = pitchPercent === 0 ? "+0%" : `${pitchPercent > 0 ? "+" : ""}${pitchPercent}%`;
+  const rateDiff = Math.round((rateSpeed - 1.0) * 100);
+  const rateStr = rateDiff === 0 ? "+0%" : `${rateDiff > 0 ? "+" : ""}${rateDiff}%`;
+
+  const { audioStream } = await tts.toStream(text, {
+    pitch: pitchStr,
+    rate: rateStr,
+  });
+
+  const chunks: Buffer[] = [];
+  return new Promise((resolve, reject) => {
+    audioStream.on("data", (chunk: Buffer) => chunks.push(chunk));
+    audioStream.on("end", () => resolve(Buffer.concat(chunks)));
+    audioStream.on("error", (err: any) => reject(err));
+  });
+}
+
+/**
  * Fallback resiliente para cuando la cuota de Gemini 3.1 Flash TTS (429) se agota.
- * Genera audio real en español sin límites ni credenciales requeridas.
  */
 async function generateFallbackAudio(text: string): Promise<{ buffer: Buffer; mimeType: string }> {
   const chunks = text.match(/[^.!?]+[.!?]+|\S+/g) || [text];
@@ -159,25 +245,35 @@ export default async function handler(req: any, res: any) {
   const cleanText = text.trim();
   const numPitch = Number(pitch) || 0;
   const numRate = Number(rate) || 1.0;
+  const isGeminiRequested = voice && VALID_GEMINI_VOICES[String(voice).toLowerCase()];
 
-  // Mapear voz solicitada a una voz válida de Gemini
-  let voiceName = "Fenrir";
-  const lowerVoice = (voice || "").toLowerCase();
-  if (VALID_GEMINI_VOICES[lowerVoice]) {
-    voiceName = VALID_GEMINI_VOICES[lowerVoice];
-  } else if (lowerVoice.includes("female") || lowerVoice.includes("mujer") || lowerVoice.includes("kore") || lowerVoice.includes("salome") || lowerVoice.includes("dalia") || lowerVoice.includes("cebolla") || lowerVoice.includes("elvira")) {
-    voiceName = "Kore";
-  } else if (lowerVoice.includes("puck") || lowerVoice.includes("niño") || lowerVoice.includes("niña") || lowerVoice.includes("child") || lowerVoice.includes("patatin") || lowerVoice.includes("larissa") || numPitch > 15) {
-    voiceName = "Puck";
-  } else if (lowerVoice.includes("charon") || lowerVoice.includes("elder") || lowerVoice.includes("ancian") || numPitch < -15) {
-    voiceName = "Charon";
-  } else {
-    voiceName = "Fenrir";
+  // 1. Prioridad: Microsoft Edge Neural TTS (Para Elvira, Dalia, Salomé, Álvaro, Jorge, Larissa, etc.)
+  if (!isGeminiRequested) {
+    const { voiceName: edgeVoice, pitchOffset } = resolveEdgeVoice(voice, gender, numPitch);
+    const finalPitch = numPitch !== 0 ? numPitch : pitchOffset;
+
+    try {
+      console.log(`[Edge TTS] Sintetizando voz '${edgeVoice}' (pitch: ${finalPitch}%, rate: ${numRate}x)...`);
+      const mp3Buffer = await generateEdgeTTSAudio(cleanText, edgeVoice, finalPitch, numRate);
+      const audioUrl = await uploadAudioToSupabase(mp3Buffer, "audio/mpeg", "mp3");
+
+      return res.status(200).json({
+        success: true,
+        audioUrl: audioUrl || null,
+        audioBase64: mp3Buffer.toString("base64"),
+        mimeType: "audio/mpeg",
+        provider: "edge-tts",
+        voice: edgeVoice,
+        pitch: finalPitch,
+      });
+    } catch (edgeErr: any) {
+      console.warn("[Edge TTS Warning]:", edgeErr?.message || edgeErr);
+    }
   }
 
   const supabase = getSupabaseClient();
 
-  // 1. Prioridad: Si Colab Voice Studio está activo, generar con voces multi-personaje de alta fidelidad
+  // 2. Colab Voice Studio (si está encendido y conectado)
   if (supabase) {
     const voiceGateway = await getLiveVoiceStudioGateway(supabase);
     if (voiceGateway.online && voiceGateway.tunnelUrl) {
@@ -188,9 +284,9 @@ export default async function handler(req: any, res: any) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             text: cleanText,
-            role: role || (numPitch >= 20 ? "child_boy" : voiceName === "Kore" ? "adult_female" : "adult_male"),
+            role: role || (numPitch >= 20 ? "child_boy" : "adult_female"),
             character_name: characterName || undefined,
-            gender: gender || (voiceName === "Kore" ? "female" : "male"),
+            gender: gender || "female",
             voice: voice || undefined,
             pitch: numPitch,
             speed: numRate,
@@ -218,10 +314,11 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // 2. Motor secundario: Gemini Flash TTS si existe API key
+  // 3. Gemini Flash TTS si la voz fue solicitada como Gemini (Puck, Kore, Fenrir, etc.)
   const apiKey = process.env.GEMINI_API_KEY;
   if (apiKey) {
     try {
+      const geminiVoice = (voice && VALID_GEMINI_VOICES[String(voice).toLowerCase()]) || "Fenrir";
       const ai = new GoogleGenAI({
         apiKey,
         httpOptions: { headers: { "User-Agent": "clonecinema" } },
@@ -232,7 +329,7 @@ export default async function handler(req: any, res: any) {
         contents: [{ parts: [{ text: cleanText }] }],
         config: {
           responseModalities: [Modality.AUDIO],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
+          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: geminiVoice } } },
         },
       });
 
@@ -250,11 +347,11 @@ export default async function handler(req: any, res: any) {
         });
       }
     } catch (geminiErr: any) {
-      console.warn("[speech] Gemini TTS falló o excedió cuota (429/400). Activando respaldo resiliente:", geminiErr?.message || geminiErr);
+      console.warn("[speech] Gemini TTS falló o excedió cuota (429/400):", geminiErr?.message || geminiErr);
     }
   }
 
-  // 3. Respaldo Resiliente (Cero errores 429 de cuota o 400 de argumentos)
+  // 4. Fallback final resiliente
   try {
     const fallback = await generateFallbackAudio(cleanText);
     const audioUrl = await uploadAudioToSupabase(fallback.buffer, fallback.mimeType, "mp3");
