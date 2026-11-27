@@ -534,7 +534,7 @@ export function RenderTab({
                     </button>
                   </div>
                 </div>
-                {shot.error && (
+                {shot.status === "error" && shot.error && !shot.videoUrl && (
                   <p className="mt-2 rounded bg-red-500/5 px-2 py-1 text-[10.5px] text-red-400/90">
                     {shot.error}
                   </p>

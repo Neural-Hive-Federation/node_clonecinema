@@ -65,6 +65,9 @@ async function pushKaggleScript(params: {
 }
 
 function getSupabaseAdmin() {
+  if (typeof (globalThis as any).WebSocket === "undefined") {
+    (globalThis as any).WebSocket = class {};
+  }
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -249,11 +252,6 @@ async function dispatchComfyWanPrompt(params: {
     body: JSON.stringify({
       client_id: jobId,
       prompt: workflowWan22,
-    }),
-  });
-    body: JSON.stringify({
-      client_id: jobId,
-      prompt: workflowPrompt,
     }),
   });
 

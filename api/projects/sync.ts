@@ -1,6 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
 function getSupabaseAdmin() {
+  if (typeof (globalThis as any).WebSocket === "undefined") {
+    (globalThis as any).WebSocket = class {};
+  }
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
