@@ -681,7 +681,7 @@ Devuelve ÚNICAMENTE un objeto JSON válido con esta estructura:
       // Extraer fotogramas clave en paralelo para alimentar la visión multimodal del Director
       const visualParts: any[] = [{ text: prompt }];
       try {
-        const sampled = frames.slice(0, 15);
+        const sampled = Array.isArray(frames) ? frames.slice(0, 15) : [];
         const fetchedImages = await Promise.all(
           sampled.map(async (f: any, idx: number) => {
             if (!f.frameUrl) return null;
@@ -1026,6 +1026,7 @@ export default async function handler(req: any, res: any) {
     mode = "clone",
     format = "9:16",
     duration = 15,
+    frames = [],
   } = req.body || {};
 
   // 1. Ejecutar el Scout Inspector en tiempo real (Cero mocks)
@@ -1144,7 +1145,7 @@ LEY FUNDAMENTAL ANTI-COPYRIGHT (EL PRINCIPIO DEL SINÓNIMO SEMÁNTICO):
       // Extraer fotogramas clave en paralelo para alimentar la visión multimodal del Director
       const visualParts: any[] = [{ text: prompt }];
       try {
-        const sampled = frames.slice(0, 15);
+        const sampled = Array.isArray(frames) ? frames.slice(0, 15) : [];
         const fetchedImages = await Promise.all(
           sampled.map(async (f: any, idx: number) => {
             if (!f.frameUrl) return null;
