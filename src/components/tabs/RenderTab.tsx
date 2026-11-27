@@ -29,6 +29,78 @@ export function RenderTab({
   const abortBulkRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Estados de Telemetría Watchdog 2.0 y Gateway GPU
+  const [gatewayStatus, setGatewayStatus] = useState<{
+    online: boolean;
+    status: string;
+    isWarning: boolean;
+    warningSeconds: number;
+    note: string;
+  }>({
+    online: false,
+    status: "offline",
+    isWarning: false,
+    warningSeconds: 0,
+    note: "",
+  });
+  const [showWarningModal, setShowWarningModal] = useState(false);
+
+  // Sondeo de presencia y estado del Watchdog 2.0
+  useEffect(() => {
+    let active = true;
+    const checkGateway = async () => {
+      try {
+        const res = await fetch("/api/wan/register");
+        if (res.ok && active) {
+          const data = await res.json();
+          setGatewayStatus({
+            online: !!data.online,
+            status: data.status || "offline",
+            isWarning: !!data.isWarning,
+            warningSeconds: data.warningSeconds || 0,
+            note: data.note || "",
+          });
+          if (data.isWarning) {
+            setShowWarningModal(true);
+          } else {
+            setShowWarningModal(false);
+          }
+        }
+      } catch {}
+    };
+
+    void checkGateway();
+    const interval = setInterval(checkGateway, 10000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleKeepalive = async () => {
+    try {
+      await fetch("/api/wan/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "keepalive" }),
+      });
+      setShowWarningModal(false);
+      setGatewayStatus((prev) => ({ ...prev, isWarning: false, status: "running" }));
+    } catch {}
+  };
+
+  const handleManualShutdown = async () => {
+    try {
+      await fetch("/api/wan/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "shutdown" }),
+      });
+      setShowWarningModal(false);
+      setGatewayStatus((prev) => ({ ...prev, online: false, status: "offline", isWarning: false }));
+    } catch {}
+  };
+
   const updateShot = (id: string, partial: Partial<Shot>) =>
     patch((prev) => ({
       shots: (prev.shots || []).map((s) => (s.id === id ? { ...s, ...partial } : s)),
@@ -109,6 +181,41 @@ export function RenderTab({
     abortControllerRef.current = new AbortController();
     setError(null);
 
+    // Pre-flight SaaS Autónomo: Si la GPU está apagada, la despertamos automáticamente vía API
+    if (!gatewayStatus.online) {
+      setBulkProgress({
+        current: 0,
+        total: targetShots.length,
+        shotNumber: 0,
+        title: "Arranque Autónomo de GPU",
+        statusText: "🚀 Despertando servidor GPU Wan 2.2 en la nube (arranque automático, espere ~60-90s)...",
+      });
+
+      try {
+        await fetch("/api/wan/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "wake" }),
+        });
+
+        // Sondear hasta que el túnel esté online (hasta 120s)
+        for (let i = 0; i < 24; i++) {
+          if (abortBulkRef.current) break;
+          await new Promise((r) => setTimeout(r, 5000));
+          const check = await fetch("/api/wan/register");
+          if (check.ok) {
+            const cData = await check.json();
+            if (cData.online) {
+              setGatewayStatus((prev) => ({ ...prev, online: true, status: "running" }));
+              break;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Fallo en arranque automático GPU:", e);
+      }
+    }
+
     let count = 0;
     for (const shot of targetShots) {
       if (abortBulkRef.current) break;
@@ -188,6 +295,28 @@ export function RenderTab({
           <span className="chip chip-active">{project.format}</span>
           <span className="chip">{totalShots} planos</span>
           <span className="chip">{ready} renderizados</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 border border-zinc-800 text-[11px]">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                gatewayStatus.online
+                  ? "bg-emerald-400 animate-pulse shadow-sm shadow-emerald-500/50"
+                  : gatewayStatus.status === "booting"
+                  ? "bg-blue-400 animate-ping"
+                  : gatewayStatus.status === "warning"
+                  ? "bg-amber-400 animate-bounce"
+                  : "bg-zinc-500"
+              }`}
+            />
+            <span className="text-zinc-400 font-medium">
+              {gatewayStatus.online
+                ? "GPU Wan 2.2 Lista (Warm)"
+                : gatewayStatus.status === "booting"
+                ? "Arrancando GPU..."
+                : gatewayStatus.status === "warning"
+                ? `Apagado en ${gatewayStatus.warningSeconds}s`
+                : "GPU en Reposo"}
+            </span>
+          </div>
         </div>
 
         {/* Controles de Lote de Video */}
@@ -608,6 +737,43 @@ export function RenderTab({
           </ol>
         </div>
       </Section>
+
+      {/* Modal Interactivo de Presencia Humana Watchdog 2.0 */}
+      {showWarningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="max-w-md w-full bg-zinc-900 border border-amber-500/50 rounded-2xl p-6 shadow-2xl text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center text-2xl font-bold">
+              ⏱️
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white">¿Sigues en la sala de dirección?</h3>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                El servidor GPU Wan 2.2 se apagará automáticamente en{" "}
+                <span className="text-amber-400 font-mono font-bold text-sm">
+                  {gatewayStatus.warningSeconds || 120}s
+                </span>{" "}
+                por inactividad para conservar tus horas de cómputo.
+              </p>
+            </div>
+            <div className="flex gap-3 justify-center pt-2">
+              <button
+                type="button"
+                onClick={handleKeepalive}
+                className="px-5 py-2.5 bg-signal hover:bg-signal/90 text-black font-bold text-xs rounded-xl shadow-lg shadow-signal/20 transition cursor-pointer"
+              >
+                Mantener Encendido
+              </button>
+              <button
+                type="button"
+                onClick={handleManualShutdown}
+                className="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-medium text-xs rounded-xl border border-zinc-700 transition cursor-pointer"
+              >
+                Apagar Ahora
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
