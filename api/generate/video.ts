@@ -148,7 +148,7 @@ async function dispatchComfyWanPrompt(params: {
   aspectRatio?: string;
   numFrames?: number;
 }): Promise<string> {
-  const { tunnelUrl, jobId, prompt, negativePrompt, imageName, aspectRatio, numFrames = 33 } = params;
+  const { tunnelUrl, jobId, prompt, negativePrompt, imageName, aspectRatio, numFrames = 25 } = params;
 
   const isLandscape = aspectRatio === "16:9";
   const width = isLandscape ? 832 : 480;
@@ -214,7 +214,7 @@ async function dispatchComfyWanPrompt(params: {
     "8": {
       "inputs": {
         "seed": seed,
-        "steps": 20,
+        "steps": 16,
         "cfg": 5.0,
         "sampler_name": "uni_pc",
         "scheduler": "simple",
@@ -229,20 +229,25 @@ async function dispatchComfyWanPrompt(params: {
     "9": {
       "inputs": {
         "samples": ["8", 0],
-        "vae": ["3", 0]
+        "vae": ["3", 0],
+        "tile_size": 512,
+        "overlap": 64,
+        "temporal_size": 16,
+        "temporal_overlap": 4
       },
-      "class_type": "VAEDecode"
+      "class_type": "VAEDecodeTiled"
     },
     "10": {
       "inputs": {
+        "images": ["9", 0],
+        "frame_rate": 16,
+        "loop_count": 0,
         "filename_prefix": `Wan22_${jobId}`,
-        "fps": 16,
-        "lossless": false,
-        "quality": 90,
-        "method": "default",
-        "images": ["9", 0]
+        "format": "video/h264-mp4",
+        "pingpong": false,
+        "save_output": true
       },
-      "class_type": "SaveAnimatedWEBP"
+      "class_type": "VHS_VideoCombine"
     }
   };
 
@@ -551,7 +556,7 @@ export default async function handler(req: any, res: any) {
           negativePrompt,
           imageName: uploadedImageName,
           aspectRatio: aspectRatio || "9:16",
-          numFrames: 33, // 33 frames = 2.06s estándar para Wan DiT en T4 GPU (máxima velocidad, cero desborde de VRAM)
+          numFrames: 25, // 25 frames (1.6s a 16fps) optimizado con VAEDecodeTiled y VHS_VideoCombine en GPU T4
         });
 
         console.log(`[Wan 2.1 Warm ComfyUI] Prompt encolado con éxito. Prompt ID: ${promptId}`);

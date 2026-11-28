@@ -443,12 +443,21 @@ export function RenderTab({
                 className={`relative ${FORMAT_CLASS[project.format] || "aspect-video"} max-h-[280px] w-full bg-black`}
               >
                 {shot.videoUrl ? (
-                  <video
-                    src={shot.videoUrl}
-                    controls
-                    className="h-full w-full object-contain"
-                    poster={shot.imageUrl}
-                  />
+                  shot.videoUrl.toLowerCase().includes(".webp") ? (
+                    <img
+                      src={shot.videoUrl}
+                      alt={shot.title}
+                      className="h-full w-full object-contain"
+                    />
+                  ) : (
+                    <video
+                      src={shot.videoUrl}
+                      controls
+                      playsInline
+                      className="h-full w-full object-contain"
+                      poster={shot.imageUrl}
+                    />
+                  )
                 ) : shot.imageUrl ? (
                   <img
                     src={shot.imageUrl}
