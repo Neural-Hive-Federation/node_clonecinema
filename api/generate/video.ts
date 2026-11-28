@@ -540,14 +540,27 @@ export default async function handler(req: any, res: any) {
     if (gateway.online && gateway.tunnelUrl) {
       try {
         console.log(`[Wan 2.1 Warm ComfyUI] Enviando tarea ${jobId} a ${gateway.tunnelUrl} (${calculatedFrames} frames / ${targetSeconds}s)...`);
-        let uploadedImageName = "input_frame.png";
-        if (imageRef.buffer) {
-          uploadedImageName = await uploadImageToComfy(
-            gateway.tunnelUrl,
-            imageRef.buffer,
-            `input_${jobId.slice(0, 8)}.png`
-          );
+        const isLandscape = aspectRatio === "16:9";
+        const width = isLandscape ? 832 : 480;
+        const height = isLandscape ? 480 : 832;
+
+        let bufToUpload = imageRef.buffer;
+        if (!bufToUpload) {
+          bufToUpload = await sharp({
+            create: {
+              width,
+              height,
+              channels: 3,
+              background: { r: 20, g: 20, b: 25 },
+            },
+          }).png().toBuffer();
         }
+
+        const uploadedImageName = await uploadImageToComfy(
+          gateway.tunnelUrl,
+          bufToUpload,
+          `input_${jobId.slice(0, 8)}.png`
+        );
 
         const promptId = await dispatchComfyWanPrompt({
           tunnelUrl: gateway.tunnelUrl,
