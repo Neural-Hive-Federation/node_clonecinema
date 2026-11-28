@@ -174,13 +174,51 @@ export default async function handler(req: any, res: any) {
 
     // 2.5. Si es un trabajo del Servidor Caliente Wan 2.1 ComfyUI
     if (job.provider === "wan22_tunnel") {
+      const jobAgeMs = Date.now() - new Date(job.created_at || Date.now()).getTime();
+
       const { data: gw } = await supabase
         .from("ai_jobs")
-        .select("input_url")
+        .select("input_url, status")
         .eq("id", "a0000000-0000-0000-0000-000000000001")
         .maybeSingle();
 
       const tunnelUrl = gw?.input_url?.trim().replace(/\/+$/, "");
+
+      // Si pasaron más de 35 minutos o el túnel está offline por más de 10 minutos, auto-fallar el zombie
+      if (!tunnelUrl || gw?.status === "offline") {
+        if (jobAgeMs > 10 * 60 * 1000) {
+          const timeoutMsg = "El servidor GPU se desconectó antes de completar la tarea.";
+          await supabase
+            .from("ai_jobs")
+            .update({ status: "error", error: timeoutMsg, updated_at: new Date().toISOString() })
+            .eq("id", job.id);
+
+          return res.status(200).json({
+            success: false,
+            jobId: job.id,
+            status: "error",
+            done: true,
+            error: timeoutMsg,
+          });
+        }
+      }
+
+      if (jobAgeMs > 35 * 60 * 1000) {
+        const timeoutMsg = "La tarea se excedió del tiempo límite en GPU (35 min).";
+        await supabase
+          .from("ai_jobs")
+          .update({ status: "error", error: timeoutMsg, updated_at: new Date().toISOString() })
+          .eq("id", job.id);
+
+        return res.status(200).json({
+          success: false,
+          jobId: job.id,
+          status: "error",
+          done: true,
+          error: timeoutMsg,
+        });
+      }
+
       if (!tunnelUrl || !job.kernel_ref) {
         return res.status(200).json({
           success: true,

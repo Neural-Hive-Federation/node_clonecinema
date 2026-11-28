@@ -246,6 +246,53 @@ export default async function handler(req: any, res: any) {
       });
     }
 
+    // 3.5. Limpieza Masiva de Procesos Zombies / Cancelar Cola
+    if (action === "reset_zombies") {
+      // 1. Cancelar todos los trabajos que quedaron en "running" o "queued"
+      await supabase
+        .from("ai_jobs")
+        .update({
+          status: "error",
+          error: "Cancelado por usuario / Limpieza de procesos colgados",
+          updated_at: new Date().toISOString(),
+        })
+        .in("status", ["running", "queued"])
+        .neq("id", targetId);
+
+      // 2. Si el túnel de ComfyUI está activo, enviar orden de interrupción
+      let comfyCleared = false;
+      const { data: gw } = await supabase
+        .from("ai_jobs")
+        .select("input_url")
+        .eq("id", targetId)
+        .maybeSingle();
+
+      const activeTunnel = gw?.input_url?.trim().replace(/\/+$/, "");
+      if (activeTunnel) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 3000);
+          await fetch(`${activeTunnel}/interrupt`, { method: "POST", signal: controller.signal });
+          await fetch(`${activeTunnel}/queue`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clear: true }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          comfyCleared = true;
+        } catch (e) {
+          console.warn("[reset_zombies] ComfyUI interrupt error:", e);
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Procesos colgados purgados y cola reseteada con éxito.",
+        comfyCleared,
+      });
+    }
+
     // 4. Registro o actualización de la URL del túnel Cloudflare (desde el notebook)
     if (!tunnelUrl || typeof tunnelUrl !== "string") {
       return res.status(400).json({ error: "Falta tunnelUrl o action válido." });

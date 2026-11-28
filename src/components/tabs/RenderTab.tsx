@@ -283,9 +283,52 @@ export function RenderTab({
     setBulkProgress(null);
   }
 
+  // Detener todo y purgar procesos colgados / zombies
+  const [cleaningZombies, setCleaningZombies] = useState(false);
+
+  const handleStopAllAndCleanZombies = async () => {
+    setCleaningZombies(true);
+    // 1. Cancelar cualquier lote o sondeo activo en el cliente
+    abortBulkRef.current = true;
+    abortControllerRef.current?.abort();
+    setBulkRendering(false);
+    setBulkProgress(null);
+    setError(null);
+
+    // 2. Resetear todos los planos a estado limpio
+    patch((prev) => ({
+      shots: (prev.shots || []).map((s) => {
+        if (s.videoUrl) {
+          return { ...s, status: "ready" as const, error: undefined, operationName: undefined };
+        }
+        return { ...s, status: undefined, error: undefined, operationName: undefined };
+      }),
+    }));
+
+    // 3. Notificar al backend para actualizar ai_jobs zombies en Supabase y ComfyUI
+    try {
+      await fetch("/api/wan/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset_zombies" }),
+      });
+    } catch (e) {
+      console.warn("Fallo al purgar zombies en backend:", e);
+    } finally {
+      setCleaningZombies(false);
+    }
+  };
+
+  const resetSingleShot = (shotId: string) => {
+    updateShot(shotId, { status: undefined, error: undefined, operationName: undefined });
+  };
+
   const ready = (project.shots || []).filter((s) => s.videoUrl).length;
   const totalShots = (project.shots || []).length;
   const shotsWithoutVideo = (project.shots || []).filter((s) => !s.videoUrl).length;
+  const renderingShotsCount = (project.shots || []).filter((s) => s.status === "rendering").length;
+  const errorShotsCount = (project.shots || []).filter((s) => s.status === "error" && !s.videoUrl).length;
+  const hasZombiesOrActive = renderingShotsCount > 0 || bulkRendering || errorShotsCount > 0;
 
   return (
     <div className="space-y-5">
@@ -321,6 +364,20 @@ export function RenderTab({
 
         {/* Controles de Lote de Video */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Botón Kill-Switch / Limpiar procesos colgados y zombies */}
+          {(hasZombiesOrActive || cleaningZombies) && (
+            <button
+              type="button"
+              className="btn btn-ghost text-[11.5px] border border-red-500/40 bg-red-500/10 text-red-300 hover:bg-red-500/25 hover:text-white flex items-center gap-1.5 transition font-semibold cursor-pointer shadow-xs"
+              onClick={handleStopAllAndCleanZombies}
+              disabled={cleaningZombies}
+              title="Detiene de golpe todos los renders activos, limpia procesos colgados (zombies) y resetea los estados a reposo"
+            >
+              {cleaningZombies ? <Spinner size={12} /> : <StopCircle size={13} className="text-red-400" />}
+              <span>{bulkRendering ? "Detener todo" : `Limpiar zombies (${renderingShotsCount + errorShotsCount})`}</span>
+            </button>
+          )}
+
           <button
             type="button"
             className={`btn btn-ghost text-[11.5px] border flex items-center gap-1.5 transition ${
@@ -471,12 +528,25 @@ export function RenderTab({
                 )}
 
                 {rendering && !shot.videoUrl && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/65 text-[11px] text-zinc-300 backdrop-blur-xs">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/75 text-[11px] text-zinc-300 backdrop-blur-xs p-3 text-center z-10">
                     <Spinner size={18} />
-                    Renderizando clip Wan 2.1…
+                    <span className="font-medium text-white">Renderizando clip Wan 2.1…</span>
                     <span className="text-[10px] text-zinc-400">
                       puede tardar varios minutos
                     </span>
+                    {!bulkRendering && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          resetSingleShot(shot.id);
+                        }}
+                        className="mt-1 flex items-center gap-1 rounded-md border border-zinc-700 bg-zinc-900/90 px-2 py-0.5 text-[10px] text-zinc-300 hover:border-red-500/40 hover:text-red-300 transition cursor-pointer"
+                        title="Cancelar o desbloquear este plano"
+                      >
+                        <X size={10} /> Cancelar / Resetear
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -544,9 +614,17 @@ export function RenderTab({
                   </div>
                 </div>
                 {shot.status === "error" && shot.error && !shot.videoUrl && (
-                  <p className="mt-2 rounded bg-red-500/5 px-2 py-1 text-[10.5px] text-red-400/90">
-                    {shot.error}
-                  </p>
+                  <div className="mt-2 flex items-center justify-between gap-1 rounded bg-red-500/10 border border-red-500/20 px-2 py-1 text-[10.5px] text-red-400/90">
+                    <span className="truncate flex-1">{shot.error}</span>
+                    <button
+                      type="button"
+                      onClick={() => resetSingleShot(shot.id)}
+                      className="text-zinc-400 hover:text-zinc-200 shrink-0 ml-1 p-0.5 rounded hover:bg-red-500/20 transition cursor-pointer"
+                      title="Limpiar mensaje de error"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
