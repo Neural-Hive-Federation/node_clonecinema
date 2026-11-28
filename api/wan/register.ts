@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { WAN22_NOTEBOOK_JSON } from "./wan22_notebook_source";
 
 export const config = {
   maxDuration: 60,
@@ -47,39 +48,10 @@ async function wakeKaggleWan22(): Promise<{ ref: string; versionNumber: number }
   const username = process.env.KAGGLE_USERNAME || "wilycol";
   const headers = getKaggleAuthHeaders();
 
-  // Cargamos el cuaderno oficial con Watchdog 2.0 embebido
-  const fs = await import("fs");
-  const path = await import("path");
-  let notebookText = "";
-
-  const candidatePaths = [
-    path.join(process.cwd(), "kaggle", "wan22_ti2v", "CloneCinema_Wan2_2_TI2V_Kaggle.ipynb"),
-    path.join(process.cwd(), "..", "kaggle", "wan22_ti2v", "CloneCinema_Wan2_2_TI2V_Kaggle.ipynb"),
-  ];
-
-  for (const p of candidatePaths) {
-    try {
-      if (fs.existsSync(p)) {
-        notebookText = fs.readFileSync(p, "utf-8");
-        break;
-      }
-    } catch {}
-  }
-
-  if (!notebookText) {
-    const b64Path = path.join(process.cwd(), "scratch", "nb_b64.txt");
-    try {
-      if (fs.existsSync(b64Path)) {
-        const raw = fs.readFileSync(b64Path, "utf-8");
-        notebookText = Buffer.from(raw, "base64").toString("utf-8");
-      }
-    } catch {}
-  }
-
   const body = {
     slug: `${username}/clonecinema-wan-2-2-ti2v`,
     newTitle: "CloneCinema Wan 2.2 TI2V",
-    text: notebookText || "{}",
+    text: WAN22_NOTEBOOK_JSON,
     language: "python",
     kernelType: "notebook",
     isPrivate: true,
