@@ -1,5 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import { WAN22_NOTEBOOK_RAW } from "./wan22_notebook_content.ts";
 
 export const config = {
   maxDuration: 60,
@@ -68,7 +67,13 @@ async function wakeKaggleWan22(): Promise<{ ref: string; versionNumber: number }
   }
 
   if (!notebookText) {
-    notebookText = WAN22_NOTEBOOK_RAW;
+    const b64Path = path.join(process.cwd(), "scratch", "nb_b64.txt");
+    try {
+      if (fs.existsSync(b64Path)) {
+        const raw = fs.readFileSync(b64Path, "utf-8");
+        notebookText = Buffer.from(raw, "base64").toString("utf-8");
+      }
+    } catch {}
   }
 
   const body = {
