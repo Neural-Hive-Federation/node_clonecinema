@@ -583,7 +583,6 @@ export default async function handler(req: any, res: any) {
     }
 
     // 2. Fallback al Script de Kaggle (Modo Frío por Lotes)
-    const targetSeconds = Number(durationSeconds || seconds || 2);
     const clipCount = Math.max(1, Math.min(6, Math.ceil(targetSeconds / 2.0)));
 
     const chainPrompts = Array.from({ length: clipCount }, (_, i) => {
