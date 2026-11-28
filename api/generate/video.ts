@@ -569,7 +569,7 @@ export default async function handler(req: any, res: any) {
           negativePrompt,
           imageName: uploadedImageName,
           aspectRatio: aspectRatio || "9:16",
-          numFrames: 25, // 25 frames (1.6s a 16fps) optimizado con VAEDecodeTiled y VHS_VideoCombine en GPU T4
+          numFrames: 33, // 33 frames nativos (2.06s a 16fps) optimizado con VAEDecodeTiled y VHS_VideoCombine
         });
 
         console.log(`[Wan 2.1 Warm ComfyUI] Prompt encolado con éxito. Prompt ID: ${promptId}`);
@@ -596,59 +596,18 @@ export default async function handler(req: any, res: any) {
           promptId,
         });
       } catch (comfyErr: any) {
-        console.warn("[Wan 2.1 ComfyUI Error, haciendo fallback a Kaggle Script]:", comfyErr.message);
+        console.error("[Wan 2.2 ComfyUI Error]:", comfyErr.message);
+        return res.status(502).json({
+          success: false,
+          error: `Error de comunicación con ComfyUI Wan 2.2: ${comfyErr.message}`,
+        });
       }
     }
 
-    // 2. Fallback al Script de Kaggle (Modo Frío por Lotes)
-    const clipCount = Math.max(1, Math.min(6, Math.ceil(targetSeconds / 2.0)));
-
-    const chainPrompts = Array.from({ length: clipCount }, (_, i) => {
-      if (i === 0) return prompt.trim();
-      return `${prompt.trim()}, continuous seamless camera motion, smooth cinematic continuation, phase ${i + 1}`;
-    });
-
-    const payload = {
-      job_id: jobId,
-      prompt: prompt.trim(),
-      chain_prompts: chainPrompts,
-      aspect_ratio: aspectRatio || "9:16",
-      initial_image_b64: imageRef.b64 || null,
-      initial_image_url: imageRef.url || null,
-      num_frames: 33,
-      fps: 16,
-    };
-
-    const payloadB64 = Buffer.from(JSON.stringify(payload), "utf-8").toString("base64");
-    const scriptWithPayload = WAN_I2V_TEMPLATE.replace("__PAYLOAD_B64__", payloadB64);
-
-    console.log(`[Kaggle Submit Video Fallback] Enviando tarea ${jobId} a wilycol/clonecinema-wan-i2v...`);
-    const { versionNumber } = await pushKaggleScript({
-      slug: "wilycol/clonecinema-wan-i2v",
-      title: "CloneCinema Wan I2V",
-      text: scriptWithPayload,
-      enableGpu: true,
-    });
-    console.log(`[Kaggle Submit Video] Versión ${versionNumber} en ejecución en GPU.`);
-
-    const { error: insertErr } = await supabase.from("ai_jobs").insert({
-      id: jobId,
-      kind: "video",
-      status: "running",
-      provider: "kaggle",
-      kernel_ref: "wilycol/clonecinema-wan-i2v",
-      prompt: prompt.trim(),
-    });
-
-    if (insertErr) {
-      console.warn("[ai_jobs video insert warning]:", insertErr.message);
-    }
-
-    return res.status(200).json({
-      success: true,
-      jobId,
-      provider: "kaggle",
-      kernelVersion: versionNumber,
+    // 2. Si el túnel no está online, no enviamos a scripts zombies que monopolizan la GPU
+    return res.status(503).json({
+      success: false,
+      error: "El servidor ComfyUI Wan 2.2 en Kaggle no está conectado o está iniciando. Por favor pulsa 'Despertar GPU' en la barra superior y espera a que el indicador esté en verde.",
     });
   } catch (err: any) {
     console.error("[generate/video Error]:", err);

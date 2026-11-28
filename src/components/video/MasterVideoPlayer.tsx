@@ -79,6 +79,8 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
   const isFullyRendered = shots.length > 0 && renderedShotsCount === shots.length;
 
   // Sincronizar video y audio cuando cambia el plano o se busca en la barra
+  const currentSegIndex = Math.floor(timeInShot / 2.06);
+
   useEffect(() => {
     if (playMasterVideo && masterVideoUrl) {
       if (videoRef.current && videoRef.current.src !== masterVideoUrl) {
@@ -94,19 +96,33 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
 
     if (!currentShot) return;
 
-    // Sincronizar video del plano
-    if (videoRef.current && currentShot.videoUrl) {
-      if (videoRef.current.src !== currentShot.videoUrl) {
-        videoRef.current.src = currentShot.videoUrl;
-        videoRef.current.currentTime = timeInShot;
-        if (isPlaying) {
-          videoRef.current.play().catch(() => {});
+    // Sincronizar video del plano (soporte multi-segmento continuo Wan 2.2)
+    if (videoRef.current) {
+      const segments = currentShot.videoSegments && currentShot.videoSegments.length > 0
+        ? currentShot.videoSegments
+        : (currentShot.videoUrl ? [currentShot.videoUrl] : []);
+
+      if (segments.length > 0) {
+        const SEGMENT_DURATION = 2.06;
+        const segIndex = Math.min(segments.length - 1, Math.floor(timeInShot / SEGMENT_DURATION));
+        const activeUrl = segments[segIndex];
+        const timeInSeg = timeInShot - (segIndex * SEGMENT_DURATION);
+
+        if (videoRef.current.src !== activeUrl) {
+          videoRef.current.src = activeUrl;
+          videoRef.current.currentTime = Math.max(0, timeInSeg);
+          if (isPlaying) {
+            videoRef.current.play().catch(() => {});
+          }
+        } else {
+          // Mismo video, verificar desfase
+          if (Math.abs(videoRef.current.currentTime - timeInSeg) > 0.3) {
+            videoRef.current.currentTime = Math.max(0, timeInSeg);
+          }
         }
       } else {
-        // Mismo video, verificar desfase
-        if (Math.abs(videoRef.current.currentTime - timeInShot) > 0.3) {
-          videoRef.current.currentTime = timeInShot;
-        }
+        videoRef.current.pause();
+        videoRef.current.src = "";
       }
     }
 
@@ -125,7 +141,7 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
         voiceAudioRef.current.src = "";
       }
     }
-  }, [activeIndex, currentShot?.id, playMasterVideo, masterVideoUrl]);
+  }, [activeIndex, currentShot?.id, currentSegIndex, playMasterVideo, masterVideoUrl]);
 
   // Control del bucle de reproducción continuo
   useEffect(() => {
@@ -430,18 +446,18 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
               : "aspect-[16/9] w-full max-w-[720px]"
           }`}
         >
-          {/* Elemento de Video (cuando el plano tiene clip renderizado) */}
+          {/* Elemento de Video (cuando el plano tiene clip renderizado o tramos) */}
           <video
             ref={videoRef}
             playsInline
             muted
             className={`h-full w-full object-cover transition-opacity duration-300 ${
-              currentShot?.videoUrl ? "opacity-100" : "opacity-0 absolute"
+              (currentShot?.videoUrl || (currentShot?.videoSegments && currentShot.videoSegments.length > 0)) ? "opacity-100" : "opacity-0 absolute"
             }`}
           />
 
           {/* Fallback de Imagen / Keyframe (cuando el plano aún no tiene video) */}
-          {!currentShot?.videoUrl && currentShot?.imageUrl && (
+          {!currentShot?.videoUrl && (!currentShot?.videoSegments || currentShot.videoSegments.length === 0) && currentShot?.imageUrl && (
             <div className="relative h-full w-full">
               <img
                 src={currentShot.imageUrl}
@@ -455,7 +471,7 @@ export function MasterVideoPlayer({ project }: MasterVideoPlayerProps) {
           )}
 
           {/* Si no hay imagen ni video */}
-          {!currentShot?.videoUrl && !currentShot?.imageUrl && (
+          {!currentShot?.videoUrl && (!currentShot?.videoSegments || currentShot.videoSegments.length === 0) && !currentShot?.imageUrl && (
             <div className="flex h-full w-full flex-col items-center justify-center p-6 text-center text-zinc-500">
               <Film size={32} className="mb-2 opacity-40 text-signal" />
               <p className="text-xs font-medium">Plano sin render</p>

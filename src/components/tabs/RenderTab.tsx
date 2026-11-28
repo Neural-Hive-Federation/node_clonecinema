@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { CircleAlert, Clapperboard, Download, Play, RotateCw, Sparkles, ListFilter, Check, X, ChevronDown, StopCircle, Wand2, Clock } from "lucide-react";
 import type { Project, ProjectUpdater, Shot } from "../../types";
 import { isPaymentRequired, startVideo, videoStatus, waitForJobFull } from "../../lib/api";
+import { extractLastFrameFromVideo } from "../../lib/videoUtils";
 import { useSession } from "../../context/SessionContext";
 import { FORMAT_CLASS, Section, Spinner } from "../ui";
 
@@ -150,15 +151,101 @@ export function RenderTab({
     return () => clearInterval(timer);
   }, [project.shots, bulkRendering]);
 
-  // Renderizado individual de un plano
+  // Orquestador Secuencial con Frame-Chaining Continuo (Micro-Storyboards)
+  async function renderShotSequential(
+    shot: Shot,
+    signal?: AbortSignal,
+    onProgress?: (text: string) => void
+  ): Promise<{ videoUrl: string; segments: string[] }> {
+    const targetSeconds = shot.seconds || 3;
+    // Cada tramo óptimo de Wan 2.2 son 33 frames (~2.06s a 16fps)
+    // Si dura <= 2.5s -> 1 tramo (~2.1s)
+    // Si dura de 2.6s a 4.5s -> 2 tramos encadenados (~4.1s)
+    // Si dura > 4.5s -> 3 tramos encadenados (~6.2s)
+    const totalSegments = targetSeconds <= 2.5 ? 1 : targetSeconds <= 4.5 ? 2 : 3;
+    const segments: string[] = [];
+    let currentInputImage = shot.imageUrl;
+
+    for (let segIdx = 0; segIdx < totalSegments; segIdx++) {
+      if (signal?.aborted) throw new Error("Generación cancelada por el usuario.");
+
+      const segNum = segIdx + 1;
+      const isContinuation = segIdx > 0;
+      const segmentPrompt = isContinuation
+        ? `${shot.videoPrompt}, continuous seamless camera motion, smooth cinematic continuation, phase ${segNum}`
+        : shot.videoPrompt;
+
+      const progressLabel =
+        totalSegments > 1
+          ? `Tramo ${segNum}/${totalSegments} (${((segNum - 1) * 2.1).toFixed(1)}s - ${(segNum * 2.1).toFixed(1)}s)`
+          : "Clip (2.1s)";
+
+      if (onProgress) {
+        onProgress(`${progressLabel}: Enviando a Wan 2.2...`);
+      }
+
+      const res = await startVideo(segmentPrompt, project.format, currentInputImage, 2);
+      const tracked = res.jobId || res.operationName;
+      if (!tracked) throw new Error(res.error || "No se pudo iniciar el render del tramo.");
+
+      updateShot(shot.id, { operationName: tracked, status: "rendering" });
+
+      if (onProgress) {
+        onProgress(`${progressLabel}: GPU activa procesando tramo...`);
+      }
+
+      const statusRes = await waitForJobFull(
+        tracked,
+        "video",
+        signal,
+        (statusText) => {
+          if (onProgress) {
+            onProgress(`${progressLabel}: ${statusText}`);
+          }
+        }
+      );
+
+      if (statusRes.done && statusRes.videoUrl) {
+        segments.push(statusRes.videoUrl);
+
+        // Si faltan tramos por generar, extraemos el último fotograma exacto del video recién terminado
+        if (segNum < totalSegments) {
+          if (onProgress) {
+            onProgress(`${progressLabel} listo. Extrayendo último frame para continuidad...`);
+          }
+          try {
+            currentInputImage = await extractLastFrameFromVideo(statusRes.videoUrl);
+          } catch (extractErr) {
+            console.warn("Fallo al extraer último frame en browser, usando keyframe base:", extractErr);
+          }
+        }
+      } else if (statusRes.error) {
+        throw new Error(statusRes.error);
+      }
+    }
+
+    if (segments.length === 0) {
+      throw new Error("No se generó ningún segmento de video.");
+    }
+
+    return {
+      videoUrl: segments[0],
+      segments,
+    };
+  }
+
+  // Renderizado individual de un plano con encadenamiento
   async function render(shot: Shot) {
     setError(null);
     updateShot(shot.id, { status: "rendering", error: undefined });
     try {
-      const res = await startVideo(shot.videoPrompt, project.format, shot.imageUrl, shot.seconds);
-      const tracked = res.jobId || res.operationName;
-      if (!tracked) throw new Error(res.error || "No se inició el render");
-      updateShot(shot.id, { operationName: tracked, status: "rendering" });
+      const res = await renderShotSequential(shot);
+      updateShot(shot.id, {
+        status: "ready",
+        videoUrl: res.videoUrl,
+        videoSegments: res.segments,
+        error: undefined,
+      });
       void refreshAccount();
     } catch (err: any) {
       if (isPaymentRequired(err)) openPaywall(err.message);
@@ -226,39 +313,27 @@ export function RenderTab({
         total: targetShots.length,
         shotNumber: shot.number,
         title: shot.title,
-        statusText: "Enviando a Wan 2.1 (Kaggle GPU)...",
+        statusText: "Iniciando encadenamiento de video...",
       });
 
       updateShot(shot.id, { status: "rendering", error: undefined });
 
       try {
-        const res = await startVideo(shot.videoPrompt, project.format, shot.imageUrl, shot.seconds);
-        const tracked = res.jobId || res.operationName;
-        if (!tracked) throw new Error(res.error || "No se pudo iniciar el render.");
-
-        updateShot(shot.id, { operationName: tracked, status: "rendering" });
-
-        setBulkProgress((prev) =>
-          prev ? { ...prev, statusText: "GPU activa: procesando clip con Wan 2.1..." } : null
-        );
-
-        const statusRes = await waitForJobFull(
-          tracked,
-          "video",
+        const res = await renderShotSequential(
+          shot,
           abortControllerRef.current?.signal,
           (statusText) => {
-            setBulkProgress((prev) =>
-              prev ? { ...prev, statusText: `GPU Wan 2.1: ${statusText}` } : null
-            );
+            setBulkProgress((prev) => (prev ? { ...prev, statusText } : null));
           }
         );
 
-        if (statusRes.done && statusRes.videoUrl) {
-          updateShot(shot.id, { status: "ready", videoUrl: statusRes.videoUrl });
-          void refreshAccount();
-        } else if (statusRes.error) {
-          updateShot(shot.id, { status: "error", error: statusRes.error });
-        }
+        updateShot(shot.id, {
+          status: "ready",
+          videoUrl: res.videoUrl,
+          videoSegments: res.segments,
+          error: undefined,
+        });
+        void refreshAccount();
       } catch (err: any) {
         if (isPaymentRequired(err)) {
           openPaywall(err.message);

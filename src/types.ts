@@ -123,6 +123,7 @@ export interface Shot {
   videoPrompt: string;
   imageUrl?: string;
   videoUrl?: string;
+  videoSegments?: string[];
   audioUrl?: string;
   audioDuration?: number;
   characterId?: string;

@@ -32,7 +32,7 @@ const kaggleFluxKernel =
 const kaggleFluxReduxKernel =
   text(process.env.KAGGLE_FLUX_REDUX_KERNEL) || (kaggleUsername ? `${kaggleUsername}/clonecinema-flux-1-redux-multi-reference` : undefined);
 const kaggleVideoKernel =
-  text(process.env.KAGGLE_VIDEO_KERNEL) || (kaggleUsername ? `${kaggleUsername}/clonecinema-wan-i2v` : undefined);
+  text(process.env.KAGGLE_VIDEO_KERNEL) || (kaggleUsername ? `${kaggleUsername}/clonecinema-wan-2-2-ti2v` : undefined);
 
 const wompiPublicKey = text(process.env.WOMPI_PUBLIC_KEY);
 const wompiIntegritySecret = text(process.env.WOMPI_INTEGRITY_SECRET);
