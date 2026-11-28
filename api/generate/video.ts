@@ -551,7 +551,7 @@ export default async function handler(req: any, res: any) {
           negativePrompt,
           imageName: uploadedImageName,
           aspectRatio: aspectRatio || "9:16",
-          numFrames: calculatedFrames,
+          numFrames: 33, // 33 frames = 2.06s estándar para Wan DiT en T4 GPU (máxima velocidad, cero desborde de VRAM)
         });
 
         console.log(`[Wan 2.1 Warm ComfyUI] Prompt encolado con éxito. Prompt ID: ${promptId}`);
